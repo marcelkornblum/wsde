@@ -124,6 +124,33 @@ app-yaml: ## Show the committed app.yaml location (it's already in the repo)
 	@cat app.yaml
 
 # ---------------------------------------------------------------------------
+# Git workflow
+# ---------------------------------------------------------------------------
+
+.PHONY: git-start
+git-start: ## Start a new piece of work. Usage: make git-start b="my-branch-name"
+	$(if $(b),,$(error Usage: make git-start b="<branch-name>"))
+	git checkout main
+	git pull --ff-only origin main
+	git checkout -b $(b)
+	@echo "✅  On branch '$(b)', ready to work."
+
+.PHONY: git-done
+git-done: ## Stage all changes and commit. Usage: make git-done m="commit message"
+	$(if $(m),,$(error Usage: make git-done m="<commit message>"))
+	bd dolt push
+	git add -A
+	git commit -m "$(m)"
+	git push -u origin HEAD
+	@echo "✅  Pushed. Open a PR at: https://github.com/marcelkornblum/wsde/compare/$(shell git branch --show-current)"
+
+.PHONY: git-pr
+git-pr: ## Open a PR for the current branch. Usage: make git-pr t="PR title" [b="body text"]
+	$(if $(t),,$(error Usage: make git-pr t="<title>" [b="<body>"]))
+	gh pr create --title "$(t)" --body "$(or $(b), )" --base main
+	@echo "✅  PR opened."
+
+# ---------------------------------------------------------------------------
 # Frontend – vendor JS (Alpine.js + HTMX, downloaded to src/static/js/)
 # ---------------------------------------------------------------------------
 

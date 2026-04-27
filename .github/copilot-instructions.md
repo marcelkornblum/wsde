@@ -6,13 +6,27 @@
 
 **Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
 
+Use the make targets — they encode the exact steps:
+
 ```bash
-git checkout main && git pull --ff-only origin main
-git checkout -b <descriptive-branch>
-# ... changes + commits ...
-git push -u origin <descriptive-branch>
-# Open a PR — work is not complete until a PR exists
+make git-start b="<branch-name>"   # checkout main + pull + create branch
+# ... changes ...
+make git-done m="<commit message>"  # stage + commit + push
+make git-pr t="<PR title>"          # open PR via gh CLI
 ```
+
+## Interaction Preferences (MANDATORY)
+
+- **Confirm before acting** on anything non-trivial. Describe the plan first, wait for approval.
+- **Ask when ambiguous.** If the request could mean two different things, ask rather than guess.
+- **Report blockers immediately.** Don't silently work around a problem — surface it.
+- **Prefer small focused PRs.** One concern per branch.
+
+## Task Tracking (MANDATORY)
+
+- Use **`bd` issues** for all task tracking. Run `bd ready` to find work, `bd update <id> --claim` to claim it.
+- **Never** use the built-in TodoWrite/todo list tool — use `bd` instead.
+- Create a `bd` issue for anything that needs follow-up before closing work.
 
 ## Project Overview
 
@@ -36,6 +50,9 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 | `make test` / `test-one t="…"` | pytest |
 | `make tw-build` | Build Tailwind CSS |
 | `make js-vendor` | Download Alpine.js + HTMX |
+| `make git-start b="…"` | Start work: checkout main + pull + new branch |
+| `make git-done m="…"` | Finish work: stage + commit + push |
+| `make git-pr t="…"` | Open PR via gh CLI |
 
 ## Services Layer (MANDATORY)
 

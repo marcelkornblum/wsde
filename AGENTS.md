@@ -16,18 +16,13 @@ bd dolt push          # Push beads data to remote
 
 **Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
 
+Use the make targets — they encode the exact steps:
+
 ```bash
-# Start work
-git checkout main
-git pull --ff-only origin main        # always start from latest main
-git checkout -b <descriptive-branch>  # create feature branch
-
-# ... make changes, commit ...
-
-# Finish work
-bd dolt push
-git push -u origin <descriptive-branch>
-# Open a PR on GitHub
+make git-start b="<branch-name>"   # checkout main + pull + create branch
+# ... changes ...
+make git-done m="<commit message>"  # stage + commit + push
+make git-pr t="<PR title>"          # open PR via gh CLI
 ```
 
 **Rules:**
@@ -35,6 +30,15 @@ git push -u origin <descriptive-branch>
 - Branch names should be descriptive (e.g. `wsde-3ln.5-hooks`, `fix-cd-proxy-socket`)
 - Open a PR after pushing — work is not complete until a PR exists
 - Never amend or force-push to branches that already have a PR open
+
+---
+
+## Interaction Preferences (MANDATORY)
+
+- **Confirm before acting** on anything non-trivial. Describe the plan first, wait for approval.
+- **Ask when ambiguous.** If the request could mean two different things, ask rather than guess.
+- **Report blockers immediately.** Don’t silently work around a problem — surface it.
+- **Prefer small focused PRs.** One concern per branch.
 
 ---
 
@@ -76,9 +80,9 @@ bd close <id>         # Complete work
 
 ### Rules
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+- Use **`bd` issues** for all task tracking. Run `bd ready` to find work, `bd update <id> --claim` to claim it.
+- **Never** use the built-in TodoWrite/todo list tool — use `bd` instead.
+- Create a `bd` issue for anything that needs follow-up before closing work.
 
 ## Session Completion
 

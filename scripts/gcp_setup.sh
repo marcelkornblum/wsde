@@ -96,6 +96,7 @@ else
     gcloud sql instances create "${SQL_INSTANCE}" \
         --database-version="${SQL_VERSION}" \
         --tier="${SQL_TIER}" \
+        --edition=ENTERPRISE \
         --region="${REGION}" \
         --storage-auto-increase \
         --no-assign-ip \

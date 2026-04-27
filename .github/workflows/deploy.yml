@@ -130,6 +130,7 @@ jobs:
 
       - name: Start Cloud SQL Auth Proxy
         run: |
+          mkdir -p /tmp/cloudsql
           ./cloud-sql-proxy \
             --unix-socket /tmp/cloudsql \
             "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" &

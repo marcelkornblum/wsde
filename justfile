@@ -164,9 +164,11 @@ work-start branch issue="" title="":
     if [[ -n "{{ title }}" ]]; then
         ISSUE_ID=$(bd q "{{ title }}")
         bd update "$ISSUE_ID" --claim
+        bd update "$ISSUE_ID" --status in_progress
         echo "✅  Created and claimed $ISSUE_ID: {{ title }}"
     elif [[ -n "{{ issue }}" ]]; then
         bd update "{{ issue }}" --claim
+        bd update "{{ issue }}" --status in_progress
         echo "✅  Claimed issue {{ issue }}"
     fi
     echo "✅  On branch '{{ branch }}', ready to work."

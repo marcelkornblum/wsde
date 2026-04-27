@@ -75,10 +75,12 @@ jobs:
         run: make check-migrations
 
   # -------------------------------------------------------------------
-  # Test suite (needs PostgreSQL service container)
+  # Unit test suite (needs PostgreSQL service container)
+  # E2E tests are a separate job run via make e2e (added when Playwright
+  # infra is wired up).
   # -------------------------------------------------------------------
-  test:
-    name: Tests
+  unit-tests:
+    name: Unit tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -115,5 +117,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run tests
-        run: make test
+      - name: Run unit tests
+        # Exit code 5 means "no tests collected" — acceptable until the first
+        # real test is written. Any other non-zero exit is a genuine failure.
+        run: uv run pytest src/ -v || [ $? -eq 5 ]

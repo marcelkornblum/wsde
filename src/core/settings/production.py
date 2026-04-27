@@ -4,6 +4,7 @@ Production settings for Google App Engine. Extends base.
 Secrets are loaded from GCP Secret Manager via the SECRETS dict populated
 by core.secrets.load_secrets(), called from manage.py and wsgi/asgi.
 """
+
 import os
 
 from .base import *  # noqa: F401, F403

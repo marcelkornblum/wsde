@@ -195,17 +195,3 @@ jobs:
             echo "| **Commit** | \`${SHA:0:7}\` |"
             echo "| **Run** | [View full log](${RUN_URL}) |"
           } >> "$GITHUB_STEP_SUMMARY"
-            *)          ENV_ICON="📦" ;;
-          esac
-
-          {
-            echo "## ${STATUS_ICON} Deploy — ${ENV_ICON} \`${ENV}\`"
-            echo ""
-            echo "| | |"
-            echo "|:---|:---|"
-            echo "| **Status** | ${STATUS_ICON} ${STATUS^} |"
-            echo "| **Environment** | ${ENV_ICON} \`${ENV}\` |"
-            echo "| **Triggered by** | \`${{ github.event_name }}\` (actor: \`${ACTOR}\`) |"
-            echo "| **Commit** | \`${SHA:0:7}\` |"
-            echo "| **Run** | [View full log](${RUN_URL}) |"
-          } >> "$GITHUB_STEP_SUMMARY"

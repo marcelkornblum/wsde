@@ -99,7 +99,6 @@ else
         --edition=ENTERPRISE \
         --region="${REGION}" \
         --storage-auto-increase \
-        --no-assign-ip \
         --project="${PROJECT_ID}"
     success "Cloud SQL instance created"
 fi

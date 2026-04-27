@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Pre-commit hook – auto-fix lint issues and format staged Python files.
+# Installed via: make install-hooks
+
+set -e
+
+# Collect staged .py files (only those that still exist on disk).
+STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=d -- '*.py')
+
+if [ -z "$STAGED_PY_FILES" ]; then
+    exit 0
+fi
+
+# Run ruff fix & format on the whole src/ tree (fast, and avoids partial-file issues).
+make fix
+
+# Re-stage any files that were modified by the formatter.
+echo "$STAGED_PY_FILES" | xargs git add
+
+exit 0

@@ -33,7 +33,9 @@ DATABASES = {
         "NAME": get_secret("DB_NAME"),
         "USER": get_secret("DB_USER"),
         "PASSWORD": get_secret("DB_PASSWORD"),
-        "HOST": f"/cloudsql/{_conn_name}",
+        # DB_HOST is overridden to /tmp/cloudsql/... during CI migrations (Cloud SQL proxy).
+        # On GAE at runtime DB_HOST is unset so it falls back to the standard socket path.
+        "HOST": os.environ.get("DB_HOST", f"/cloudsql/{_conn_name}"),
         "PORT": "5432",
     }
 }

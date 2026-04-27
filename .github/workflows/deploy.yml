@@ -1,0 +1,202 @@
+name: Deploy
+
+# ---------------------------------------------------------------------------
+# Triggers → environments:
+#
+#   release (published)  →  production  (auto, via GitHub release)
+#   push to main         →  staging     (auto)
+#   workflow_dispatch    →  staging or production (manual override)
+#
+# Each GitHub environment must have:
+#   - GCP_WORKLOAD_IDENTITY_PROVIDER secret  (Workload Identity Federation pool provider)
+#   - GCP_SERVICE_ACCOUNT secret             (service account email for impersonation)
+#   - GCP_PROJECT_ID secret                  (GCP project ID)
+#   - CLOUD_SQL_CONNECTION_NAME secret       (e.g. project:region:instance)
+#   - DJANGO_SECRET_KEY secret
+# Required variables per GitHub environment:
+#   - GCS_BUCKET_NAME
+#
+# Recommended: add a manual approval gate on the "production" environment in
+# GitHub → Settings → Environments.
+# ---------------------------------------------------------------------------
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  # -------------------------------------------------------------------
+  # Resolve the target environment name from the triggering event.
+  # -------------------------------------------------------------------
+  resolve-environment:
+    name: Resolve target environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - name: Determine environment from trigger
+        id: resolve
+        run: |
+          case "${{ github.event_name }}" in
+            release)           echo "environment=production" >> "$GITHUB_OUTPUT" ;;
+            workflow_dispatch) echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT" ;;
+            *)                 echo "environment=staging" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  # -------------------------------------------------------------------
+  # Deploy to Google App Engine
+  #
+  # Uses Workload Identity Federation (keyless auth) — no long-lived
+  # service account JSON keys needed.
+  #
+  # Order of operations:
+  #   1. Auth + SDK setup
+  #   2. collectstatic → GCS
+  #   3. Run migrations via Cloud SQL Auth Proxy (proxy → Cloud SQL)
+  #   4. gcloud app deploy
+  #
+  # Required secrets per GitHub environment:
+  #   GCP_WORKLOAD_IDENTITY_PROVIDER  — full provider resource name
+  #   GCP_SERVICE_ACCOUNT             — service account email
+  #   GCP_PROJECT_ID                  — GCP project ID
+  #   CLOUD_SQL_CONNECTION_NAME       — e.g. my-project:europe-west1:wsde
+  #   DJANGO_SECRET_KEY               — Django secret key
+  #   DB_NAME / DB_USER / DB_PASSWORD — Cloud SQL credentials
+  # Required variables per GitHub environment:
+  #   GCS_BUCKET_NAME                 — GCS bucket for static files
+  # -------------------------------------------------------------------
+  deploy:
+    name: Deploy to GAE (${{ needs.resolve-environment.outputs.environment }})
+    needs: resolve-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-environment.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Collect static files
+        run: uv run python manage.py collectstatic --noinput
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.production
+          SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+
+      - name: Download Cloud SQL Auth Proxy
+        run: |
+          curl -fsSL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.15.2/cloud-sql-proxy.linux.amd64" \
+            -o cloud-sql-proxy
+          chmod +x cloud-sql-proxy
+
+      - name: Start Cloud SQL Auth Proxy
+        run: |
+          ./cloud-sql-proxy \
+            --unix-socket /tmp/cloudsql \
+            "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" &
+          # Wait for the socket to appear (max 15s)
+          for i in $(seq 1 15); do
+            [ -S "/tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" ] && break
+            sleep 1
+          done
+
+      - name: Run database migrations
+        run: uv run python manage.py migrate --noinput
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.production
+          SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+          # Connect via the proxy Unix socket
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: /tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
+          DB_PORT: ""
+
+      - name: Stop Cloud SQL Auth Proxy
+        if: always()
+        run: pkill -f cloud-sql-proxy || true
+
+      - name: Deploy to App Engine
+        run: gcloud app deploy app.yaml --quiet --project="${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          ENV="${{ needs.resolve-environment.outputs.environment }}"
+          SHA="${{ github.sha }}"
+          ACTOR="${{ github.actor }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          case "$STATUS" in
+            success)   STATUS_ICON="✅" ;;
+            failure)   STATUS_ICON="❌" ;;
+            cancelled) STATUS_ICON="⚠️" ;;
+            *)         STATUS_ICON="❓" ;;
+          esac
+
+          case "$ENV" in
+            production) ENV_ICON="🚀" ;;
+            staging)    ENV_ICON="🔬" ;;
+            *)          ENV_ICON="📦" ;;
+          esac
+
+          {
+            echo "## ${STATUS_ICON} Deploy — ${ENV_ICON} \`${ENV}\`"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | ${STATUS_ICON} ${STATUS^} |"
+            echo "| **Environment** | ${ENV_ICON} \`${ENV}\` |"
+            echo "| **Triggered by** | \`${{ github.event_name }}\` (actor: \`${ACTOR}\`) |"
+            echo "| **Commit** | \`${SHA:0:7}\` |"
+            echo "| **Run** | [View full log](${RUN_URL}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+            *)          ENV_ICON="📦" ;;
+          esac
+
+          {
+            echo "## ${STATUS_ICON} Deploy — ${ENV_ICON} \`${ENV}\`"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | ${STATUS_ICON} ${STATUS^} |"
+            echo "| **Environment** | ${ENV_ICON} \`${ENV}\` |"
+            echo "| **Triggered by** | \`${{ github.event_name }}\` (actor: \`${ACTOR}\`) |"
+            echo "| **Commit** | \`${SHA:0:7}\` |"
+            echo "| **Run** | [View full log](${RUN_URL}) |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -21,9 +21,13 @@ Use the `just` recipes — they encode the exact steps:
 ```bash
 just work-start <branch-name>       # checkout main + pull + create branch
 # ... changes ...
-just work-done "<commit message>"   # stage + commit + push
+just ci                             # lint + types + migrations + tests (always before pushing)
+just work-save "<commit message>"   # commit + push to current branch (adding to existing PR)
+just work-done "<commit message>"   # ci + commit + push (use for final commit on a PR)
 just work-pr "<PR title>"           # open PR via gh CLI
 ```
+
+`work-done` runs `just ci` automatically. `work-save` skips it — use for interim commits when you've already verified locally.
 
 **Rules:**
 
@@ -101,8 +105,11 @@ just work-start my-branch bd-a1b2                   # branch + claim
 
 # 2. Do the work...
 
-# 3. Commit, close the issue, push
-just work-done "feat: my change" bd-a1b2  # closes issue + commits + pushes
+# 3a. Add interim commits to the branch / existing PR (no permission needed)
+just work-save "feat: wip changes"   # commit + push, no ci gate
+
+# 3b. Commit, run ci, close the issue, push (final commit)
+just work-done "feat: my change" bd-a1b2  # ci + closes issue + commits + pushes
 
 # 4. Open the PR
 just work-pr "PR title"
@@ -292,19 +299,21 @@ Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No djang
 
 ## Key `just` Recipes
 
-| Recipe                                           | Purpose                                                          |
-| ------------------------------------------------ | ---------------------------------------------------------------- |
-| `just setup`                                     | Full local setup (one-time)                                      |
-| `just runserver`                                 | Start Django dev server                                          |
-| `just migrate` / `makemigrations`                | Database migrations                                              |
-| `just check`                                     | ruff + ty quality gates                                          |
-| `just fix`                                       | Auto-fix and format                                              |
-| `just test` / `test-one "…"`                     | pytest                                                           |
-| `just install-hooks`                             | Wire `.githooks/` pre-commit hook                                |
-| `just js-vendor`                                 | Download pinned Alpine.js + HTMX                                 |
-| `just tw-install` / `tw-build` / `tw-watch`      | Tailwind CSS v4 standalone CLI                                   |
-| `just work-start <branch> [issue] ["title"]`     | Start work: checkout main + pull + branch (+ create/claim issue) |
-| `just work-done "msg" [issue]`                   | Finish work: close issue + commit + push                         |
-| `just work-pr "title"`                           | Open PR via gh CLI                                               |
-| `just work-new "title"`                          | Create and claim a new bd issue                                  |
-| `just bd-close <issue>`                          | Close a bd issue standalone                                      |
+| Recipe                                       | Purpose                                                          |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `just setup`                                 | Full local setup (one-time)                                      |
+| `just runserver`                             | Start Django dev server                                          |
+| `just migrate` / `makemigrations`            | Database migrations                                              |
+| `just check`                                 | ruff + ty quality gates                                          |
+| `just fix`                                   | Auto-fix and format                                              |
+| `just test` / `test-one "…"`                 | pytest                                                           |
+| `just install-hooks`                         | Wire `.githooks/` pre-commit hook                                |
+| `just js-vendor`                             | Download pinned Alpine.js + HTMX                                 |
+| `just tw-install` / `tw-build` / `tw-watch`  | Tailwind CSS v4 standalone CLI                                   |
+| `just work-start <branch> [issue] ["title"]` | Start work: checkout main + pull + branch (+ create/claim issue) |
+| `just ci`                                    | Full quality gate: lint + types + migrations + tests             |
+| `just work-save "msg"`                       | Commit + push to current branch (add commits to existing PR)     |
+| `just work-done "msg" [issue]`               | Run ci + close issue + commit + push                             |
+| `just work-pr "title"`                       | Open PR via gh CLI                                               |
+| `just work-new "title"`                      | Create and claim a new bd issue                                  |
+| `just bd-close <issue>`                      | Close a bd issue standalone                                      |

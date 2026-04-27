@@ -11,9 +11,13 @@ Use the `just` recipes — they encode the exact steps:
 ```bash
 just work-start <branch-name>       # checkout main + pull + create branch
 # ... changes ...
-just work-done "<commit message>"   # stage + commit + push
+just ci                             # lint + types + migrations + tests (always before pushing)
+just work-save "<commit message>"   # commit + push to current branch (adding to existing PR)
+just work-done "<commit message>"   # ci + commit + push (use for final commit on a PR)
 just work-pr "<PR title>"           # open PR via gh CLI
 ```
+
+`work-done` runs `just ci` automatically before committing. `work-save` does not — use it for intermediate commits where CI speed matters and you've already verified locally.
 
 ## Interaction Preferences (MANDATORY)
 
@@ -38,7 +42,10 @@ just work-start my-branch "" "New issue title"        # creates issue, claims, b
 # or link to existing issue:
 just work-start my-branch bd-a1b2                     # branch AND claims issue
 
-# Close issue + commit + push
+# During work: add commits to the PR branch without permission
+just work-save "fix: tweak"          # commit + push (no ci gate, use for interim commits)
+
+# Close issue + run ci + commit + push
 just work-done "commit msg" bd-a1b2
 
 # Open PR
@@ -59,21 +66,21 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 
 ## Key Make Targets
 
-| Target                            | Purpose                                                          |
-| --------------------------------- | ---------------------------------------------------------------- |
-| `just setup`                                           | Full local setup (one-time)                                      |
-| `just runserver`                                       | Start dev server                                                 |
-| `just migrate` / `makemigrations`                      | Database migrations                                              |
-| `just check`                                           | ruff + ty                                                        |
-| `just fix`                                             | Auto-fix + format                                                |
-| `just test` / `test-one "…"`                           | pytest                                                           |
-| `just tw-build`                                        | Build Tailwind CSS                                               |
-| `just js-vendor`                                       | Download Alpine.js + HTMX                                        |
-| `just work-start <branch> [issue] ["title"]`           | Start work: checkout main + pull + branch (+ create/claim issue) |
-| `just work-done "msg" [issue]`                         | Finish work: close issue + commit + push                         |
-| `just work-pr "title"`                                 | Open PR via gh CLI                                               |
-| `just work-new "title"`                                | Create and claim a new bd issue                                  |
-| `just bd-close <issue>`                                | Close a bd issue standalone                                      |
+| Target                                       | Purpose                                                          |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `just setup`                                 | Full local setup (one-time)                                      |
+| `just runserver`                             | Start dev server                                                 |
+| `just migrate` / `makemigrations`            | Database migrations                                              |
+| `just check`                                 | ruff + ty                                                        |
+| `just fix`                                   | Auto-fix + format                                                |
+| `just test` / `test-one "…"`                 | pytest                                                           |
+| `just tw-build`                              | Build Tailwind CSS                                               |
+| `just js-vendor`                             | Download Alpine.js + HTMX                                        |
+| `just work-start <branch> [issue] ["title"]` | Start work: checkout main + pull + branch (+ create/claim issue) |
+| `just work-done "msg" [issue]`               | Finish work: close issue + commit + push                         |
+| `just work-pr "title"`                       | Open PR via gh CLI                                               |
+| `just work-new "title"`                      | Create and claim a new bd issue                                  |
+| `just bd-close <issue>`                      | Close a bd issue standalone                                      |
 
 ## Services Layer (MANDATORY)
 

@@ -73,6 +73,18 @@ manage *args:
 
 # ── Code quality ──────────────────────────────────────────────────────────────
 
+# Run all quality gates: lint, types, migrations, tests. Run before every push.
+ci:
+    @echo "── ruff lint ──"
+    uv run ruff check src/
+    @echo "── ty type check ──"
+    uv run ty check src/
+    @echo "── migration check ──"
+    uv run python manage.py makemigrations --check --dry-run
+    @echo "── pytest ──"
+    uv run pytest -v
+    @echo "✅  All checks passed."
+
 # Run ruff linter and ty type checker
 check:
     uv run ruff check src/
@@ -110,15 +122,17 @@ install-hooks:
 
 # ── Agentic workflow ──────────────────────────────────────────────────────────
 #
-# These recipes encode the full start→done→PR lifecycle.
-# Every non-trivial piece of work should use:
+# Full start→done→PR lifecycle:
 #
-#   just work-new "Short title"           # create + claim bd issue → prints id
-#   just work-start my-branch [bd-id]     # checkout main + pull + branch (+ claim)
-#   # — or in one step if creating a new issue —
-#   just work-start my-branch "" "Title"  # creates issue, claims it, makes branch
-#   just work-done "commit msg" [bd-id]   # close issue + commit + push
-#   just work-pr "PR title"               # open PR via gh CLI
+#   just work-new "Short title"                  # create + claim bd issue → prints id
+#   just work-start my-branch [issue] ["title"]  # checkout main + pull + branch (+ claim)
+#   just ci                                       # run all quality gates before pushing
+#   just work-save "commit msg"                   # commit + push to current branch (existing PR)
+#   just work-done "commit msg" [issue]           # close issue + ci + commit + push
+#   just work-pr "PR title"                       # open PR via gh CLI
+#
+# Use work-save when adding commits to an existing PR (no issue management, no branch switch).
+# Use work-done for the final commit that closes out a piece of work.
 
 # Create and immediately claim a new bd issue; prints the issue id
 work-new title:
@@ -150,13 +164,25 @@ work-start branch issue="" title="":
     fi
     echo "✅  On branch '{{ branch }}', ready to work."
 
-# Stage all changes, commit, push, and optionally close a bd issue
+# Commit + push to the current branch without any issue or branch management.
+# Use this when adding commits to an existing PR.
+# Usage: just work-save "fix: tweak something"
+work-save message:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git add -A
+    git commit -m "{{ message }}"
+    git push -u origin HEAD
+    echo "✅  Pushed to $(git branch --show-current)."
+
+# Run ci, close bd issue (optional), commit, and push.
 # Usage:
 #   just work-done "feat: my change"
 #   just work-done "feat: my change" bd-a1b2
 work-done message issue="":
     #!/usr/bin/env bash
     set -euo pipefail
+    just ci
     if [[ -n "{{ issue }}" ]]; then
         bd close "{{ issue }}"
         echo "✅  Closed issue {{ issue }}"

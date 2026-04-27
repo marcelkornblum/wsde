@@ -24,10 +24,12 @@ just work-start <branch-name>       # checkout main + pull + create branch
 just ci                             # lint + types + migrations + tests (always before pushing)
 just work-save "<commit message>"   # commit + push to current branch (adding to existing PR)
 just work-done "<commit message>"   # ci + commit + push (use for final commit on a PR)
-just work-pr "<PR title>"           # open PR via gh CLI
+just work-pr "<PR title>" [issue]   # open PR via gh CLI, then close bd issue
 ```
 
 `work-done` runs `just ci` automatically. `work-save` skips it — use for interim commits when you've already verified locally.
+
+**bd rule: the issue is closed inside `work-pr`, after the PR is open.** Never close it before the PR exists.
 
 **Rules:**
 
@@ -108,11 +110,11 @@ just work-start my-branch bd-a1b2                   # branch + claim
 # 3a. Add interim commits to the branch / existing PR (no permission needed)
 just work-save "feat: wip changes"   # commit + push, no ci gate
 
-# 3b. Commit, run ci, close the issue, push (final commit)
-just work-done "feat: my change" bd-a1b2  # ci + closes issue + commits + pushes
+# 3b. Final commit: run ci + commit + push (no bd interaction)
+just work-done "feat: my change"
 
-# 4. Open the PR
-just work-pr "PR title"
+# 4. Open the PR and close the bd issue (issue is closed here, after PR exists)
+just work-pr "PR title" bd-a1b2
 ```
 
 **Rules:**
@@ -132,11 +134,8 @@ just work-pr "PR title"
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE via PR** - This is MANDATORY:
    ```bash
-   git pull --rebase origin main   # ensure branch is from latest main
-   bd dolt push
-   just work-done "<commit msg>" [bd-id]  # closes issue + commits + pushes
-   just work-pr "<PR title>"
-   # or manually: git push -u origin <branch>
+   just work-done "<commit msg>"   # ci + commit + push
+   just work-pr "<PR title>" [bd-id]  # open PR then close issue
    git status  # MUST show "up to date with origin"
    ```
 5. **Clean up** - Clear stashes, prune remote branches
@@ -313,7 +312,7 @@ Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No djang
 | `just work-start <branch> [issue] ["title"]` | Start work: checkout main + pull + branch (+ create/claim issue) |
 | `just ci`                                    | Full quality gate: lint + types + migrations + tests             |
 | `just work-save "msg"`                       | Commit + push to current branch (add commits to existing PR)     |
-| `just work-done "msg" [issue]`               | Run ci + close issue + commit + push                             |
-| `just work-pr "title"`                       | Open PR via gh CLI                                               |
+| `just work-done "msg"`                           | Run ci + commit + push (no bd)                                   |
+| `just work-pr "title" [issue]`                   | Open PR then close bd issue (issue closed = PR open)             |
 | `just work-new "title"`                      | Create and claim a new bd issue                                  |
 | `just bd-close <issue>`                      | Close a bd issue standalone                                      |

@@ -14,10 +14,12 @@ just work-start <branch-name>       # checkout main + pull + create branch
 just ci                             # lint + types + migrations + tests (always before pushing)
 just work-save "<commit message>"   # commit + push to current branch (adding to existing PR)
 just work-done "<commit message>"   # ci + commit + push (use for final commit on a PR)
-just work-pr "<PR title>"           # open PR via gh CLI
+just work-pr "<PR title>" [issue]   # open PR via gh CLI, then close bd issue
 ```
 
 `work-done` runs `just ci` automatically before committing. `work-save` does not — use it for intermediate commits where CI speed matters and you've already verified locally.
+
+**bd rule: the issue is closed inside `work-pr`, after the PR is open.** Never close it before the PR exists.
 
 ## Interaction Preferences (MANDATORY)
 
@@ -45,8 +47,12 @@ just work-start my-branch bd-a1b2                     # branch AND claims issue
 # During work: add commits to the PR branch without permission
 just work-save "fix: tweak"          # commit + push (no ci gate, use for interim commits)
 
-# Close issue + run ci + commit + push
-just work-done "commit msg" bd-a1b2
+# Final commit: run ci + commit + push
+just work-done "commit msg"
+
+# Open PR and close the bd issue (issue is closed here, after PR exists)
+just work-pr "PR title" bd-a1b2
+```
 
 # Open PR
 just work-pr "PR title"
@@ -77,8 +83,10 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 | `just tw-build`                              | Build Tailwind CSS                                               |
 | `just js-vendor`                             | Download Alpine.js + HTMX                                        |
 | `just work-start <branch> [issue] ["title"]` | Start work: checkout main + pull + branch (+ create/claim issue) |
-| `just work-done "msg" [issue]`               | Finish work: close issue + commit + push                         |
-| `just work-pr "title"`                       | Open PR via gh CLI                                               |
+| `just ci`                                    | Full quality gate: lint + types + migrations + tests             |
+| `just work-save "msg"`                       | Commit + push to current branch (add commits to existing PR)     |
+| `just work-done "msg"`                       | Run ci + commit + push (no bd)                                   |
+| `just work-pr "title" [issue]`               | Open PR then close bd issue (issue closed = PR open)             |
 | `just work-new "title"`                      | Create and claim a new bd issue                                  |
 | `just bd-close <issue>`                      | Close a bd issue standalone                                      |
 

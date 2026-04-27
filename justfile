@@ -127,12 +127,14 @@ install-hooks:
 #   just work-new "Short title"                  # create + claim bd issue → prints id
 #   just work-start my-branch [issue] ["title"]  # checkout main + pull + branch (+ claim)
 #   just ci                                       # run all quality gates before pushing
-#   just work-save "commit msg"                   # commit + push to current branch (existing PR)
-#   just work-done "commit msg" [issue]           # close issue + ci + commit + push
-#   just work-pr "PR title"                       # open PR via gh CLI
+#   just work-save "commit msg"                   # commit + push to current branch (existing PR, no bd)
+#   just work-done "commit msg"                   # ci + commit + push (no bd, use before work-pr)
+#   just work-pr "PR title" [issue]               # open PR then close bd issue (issue closed = PR open)
 #
-# Use work-save when adding commits to an existing PR (no issue management, no branch switch).
-# Use work-done for the final commit that closes out a piece of work.
+# bd rule: issue is closed when the PR is opened, not before and not on merge.
+# work-save: no bd interaction — use for interim commits on an existing PR.
+# work-done: no bd interaction — use for the final commit before opening a PR.
+# work-pr:   closes the issue after the PR is open (pass the issue id here).
 
 # Create and immediately claim a new bd issue; prints the issue id
 work-new title:
@@ -151,6 +153,11 @@ work-new title:
 work-start branch issue="" title="":
     #!/usr/bin/env bash
     set -euo pipefail
+    if git show-ref --verify --quiet "refs/heads/{{ branch }}"; then
+        echo "❌  Branch '{{ branch }}' already exists locally."
+        echo "    Switch to it with: git checkout {{ branch }}"
+        exit 1
+    fi
     git checkout main
     git pull --ff-only origin main
     git checkout -b "{{ branch }}"
@@ -170,35 +177,57 @@ work-start branch issue="" title="":
 work-save message:
     #!/usr/bin/env bash
     set -euo pipefail
+    BRANCH=$(git branch --show-current)
     git add -A
     git commit -m "{{ message }}"
+    # Rebase on remote branch first if it already exists (e.g. user edits via GitHub web)
+    if git ls-remote --exit-code origin "$BRANCH" >/dev/null 2>&1; then
+        git pull --rebase origin "$BRANCH"
+    fi
     git push -u origin HEAD
-    echo "✅  Pushed to $(git branch --show-current)."
+    echo "✅  Pushed to $BRANCH."
 
-# Run ci, close bd issue (optional), commit, and push.
+# Run ci, commit, and push. No bd interaction — pass the issue to work-pr to close it.
 # Usage:
 #   just work-done "feat: my change"
-#   just work-done "feat: my change" bd-a1b2
-work-done message issue="":
+work-done message:
     #!/usr/bin/env bash
     set -euo pipefail
-    just ci
-    if [[ -n "{{ issue }}" ]]; then
-        bd close "{{ issue }}"
-        echo "✅  Closed issue {{ issue }}"
+    BRANCH=$(git branch --show-current)
+    if [[ "$BRANCH" == "main" ]]; then
+        echo "❌  Cannot run work-done on main. Create a feature branch first."
+        exit 1
     fi
-    bd dolt push
+    just ci
     git add -A
     git commit -m "{{ message }}"
+    # Rebase on remote branch first if it already exists
+    if git ls-remote --exit-code origin "$BRANCH" >/dev/null 2>&1; then
+        git pull --rebase origin "$BRANCH"
+    fi
     git push -u origin HEAD
-    BRANCH=$(git branch --show-current)
-    echo "✅  Pushed. Open a PR: https://github.com/marcelkornblum/wsde/compare/$BRANCH"
+    echo "✅  Pushed. Now run: just work-pr \"PR title\" [bd-issue-id]"
 
-# Open a PR for the current branch via gh CLI
-# Usage: just work-pr "PR title" "optional body"
-work-pr title body="":
-    gh pr create --title "{{ title }}" --body "{{ body }}" --base main
-    @echo "✅  PR opened."
+# Open a PR for the current branch, then close the bd issue (if given).
+# Issue is closed here — after the PR is open — per the bd rule.
+# Usage:
+#   just work-pr "PR title"
+#   just work-pr "PR title" bd-a1b2
+work-pr title issue="" body="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if gh pr view --json url --jq .url 2>/dev/null | grep -q 'http'; then
+        echo "ℹ️  A PR already exists for this branch:"
+        gh pr view --json url,title --jq '"  " + .title + "\n  " + .url'
+    else
+        gh pr create --title "{{ title }}" --body "{{ body }}" --base main
+        echo "✅  PR opened."
+    fi
+    if [[ -n "{{ issue }}" ]]; then
+        bd close "{{ issue }}"
+        bd dolt push
+        echo "✅  Closed issue {{ issue }} (PR is now open)."
+    fi
 
 # Close a bd issue standalone (without committing)
 # Usage: just bd-close bd-a1b2

@@ -12,7 +12,9 @@ if [ -z "$STAGED_PY_FILES" ]; then
 fi
 
 # Run ruff fix & format on the whole src/ tree (fast, and avoids partial-file issues).
-just fix
+# Inline uv commands rather than calling `just fix` — git hook env may not have just in PATH.
+uv run ruff check --fix src/
+uv run ruff format src/
 
 # Re-stage any files that were modified by the formatter.
 echo "$STAGED_PY_FILES" | xargs git add

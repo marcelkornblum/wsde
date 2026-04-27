@@ -4,6 +4,8 @@ entrypoint: gunicorn -b :$PORT core.wsgi:application
 
 env_variables:
   DJANGO_SETTINGS_MODULE: core.settings.production
+  CLOUD_SQL_CONNECTION_NAME: wsde-marcelkornblum:europe-west2:wsde-db
+  GCS_BUCKET_NAME: wsde-static
 
 beta_settings:
   cloud_sql_instances: wsde-marcelkornblum:europe-west2:wsde-db

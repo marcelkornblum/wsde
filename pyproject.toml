@@ -1,0 +1,48 @@
+[project]
+name = "wsde"
+version = "0.1.0"
+description = "Worst Stag Do Ever — event site for a recurring group event."
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.0.4",
+    "django-allauth>=65.16.1",
+    "django-storages>=1.14.6",
+    "google-cloud-secret-manager>=2.27.0",
+    "gunicorn>=25.3.0",
+    "psycopg2-binary>=2.9.12",
+    "pyjwt>=2.12.1",
+    "wagtail>=7.3.1",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.13.5",
+    "factory-boy>=3.3.3",
+    "pytest>=9.0.3",
+    "pytest-django>=4.12.0",
+    "pytest-playwright>=0.7.2",
+    "ruff>=0.15.12",
+    "ty>=0.0.32",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings.dev"
+python_files = ["tests.py", "test_*.py"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py313"
+src = ["src"]
+line-length = 120
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "DJ"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core"]
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"
+unresolved-import = "ignore"
+invalid-argument-type = "ignore"

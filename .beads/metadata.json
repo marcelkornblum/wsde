@@ -1,0 +1,8 @@
+{
+    "database": "dolt",
+    "backend": "dolt",
+    "dolt_mode": "server",
+    "dolt_database": "wsde",
+    "dolt_data_dir": "./dolt",
+    "project_id": "ddf908de-6b27-48ca-803c-fc8c6d9c5b1d"
+}

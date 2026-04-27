@@ -1,0 +1,50 @@
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+
+# Django
+*.log
+staticfiles/
+media/
+
+# Local settings (machine-specific, never commit)
+src/core/settings/local.py
+
+# uv
+.python-version
+
+# Tailwind binary (auto-downloaded by make)
+bin/tailwindcss
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Type / lint caches
+.mypy_cache/
+.ty_cache/
+.ruff_cache/

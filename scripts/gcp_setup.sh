@@ -34,6 +34,8 @@ SQL_TIER="db-f1-micro"           # cheapest; upgrade when needed
 SQL_VERSION="POSTGRES_17"
 DB_NAME="wsde"
 DB_USER="wsde"
+DB_NAME_STAGING="wsde_staging"
+DB_USER_STAGING="wsde_staging"
 
 # GCS
 GCS_BUCKET="${PROJECT_ID}-static"
@@ -113,21 +115,41 @@ gcloud sql databases create "${DB_NAME}" \
     --instance="${SQL_INSTANCE}" \
     --project="${PROJECT_ID}" 2>/dev/null || warn "Database '${DB_NAME}' already exists"
 
-info "Creating database user '${DB_USER}'..."
+info "Creating database user '${DB_USER}' (production)..."
 # Generate a strong random password
-DB_PASSWORD=$(python3 -c "import secrets, string; print(''.join(secrets.choice(string.ascii_letters + string.digits + '!@#%^&*') for _ in range(32)))")
+DB_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
 gcloud sql users create "${DB_USER}" \
     --instance="${SQL_INSTANCE}" \
     --password="${DB_PASSWORD}" \
     --project="${PROJECT_ID}" 2>/dev/null || {
     warn "User '${DB_USER}' already exists — generating new password..."
-    DB_PASSWORD=$(python3 -c "import secrets, string; print(''.join(secrets.choice(string.ascii_letters + string.digits + '!@#%^&*') for _ in range(32)))")
+    DB_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
     gcloud sql users set-password "${DB_USER}" \
         --instance="${SQL_INSTANCE}" \
         --password="${DB_PASSWORD}" \
         --project="${PROJECT_ID}"
 }
 success "Database user configured"
+
+info "Creating staging database '${DB_NAME_STAGING}'..."
+gcloud sql databases create "${DB_NAME_STAGING}" \
+    --instance="${SQL_INSTANCE}" \
+    --project="${PROJECT_ID}" 2>/dev/null || warn "Database '${DB_NAME_STAGING}' already exists"
+
+info "Creating staging database user '${DB_USER_STAGING}'..."
+DB_PASSWORD_STAGING=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
+gcloud sql users create "${DB_USER_STAGING}" \
+    --instance="${SQL_INSTANCE}" \
+    --password="${DB_PASSWORD_STAGING}" \
+    --project="${PROJECT_ID}" 2>/dev/null || {
+    warn "User '${DB_USER_STAGING}' already exists — generating new password..."
+    DB_PASSWORD_STAGING=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
+    gcloud sql users set-password "${DB_USER_STAGING}" \
+        --instance="${SQL_INSTANCE}" \
+        --password="${DB_PASSWORD_STAGING}" \
+        --project="${PROJECT_ID}"
+}
+success "Staging database user configured"
 
 # ---------------------------------------------------------------------------
 # 4. GCS bucket for static files
@@ -194,10 +216,10 @@ else
     success "WIF pool created"
 fi
 
-WIF_POOL_ID=$(gcloud iam workload-identity-pools describe "${WIF_POOL}" \
-    --location="global" \
-    --project="${PROJECT_ID}" \
-    --format="value(name)")
+# Construct resource names directly — avoids propagation delay after create
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+WIF_POOL_RESOURCE="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}"
+WIF_PROVIDER_RESOURCE="${WIF_POOL_RESOURCE}/providers/${WIF_PROVIDER}"
 
 info "Creating WIF provider '${WIF_PROVIDER}'..."
 if gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER}" \
@@ -216,27 +238,18 @@ else
     success "WIF provider created"
 fi
 
-WIF_PROVIDER_ID=$(gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER}" \
-    --workload-identity-pool="${WIF_POOL}" \
-    --location="global" \
-    --project="${PROJECT_ID}" \
-    --format="value(name)")
-
 info "Binding WIF pool to service account..."
 gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
     --project="${PROJECT_ID}" \
     --role="roles/iam.workloadIdentityUser" \
-    --member="principalSet://iam.googleapis.com/${WIF_POOL_ID}/attribute.repository/${GITHUB_REPO}"
+    --member="principalSet://iam.googleapis.com/${WIF_POOL_RESOURCE}/attribute.repository/${GITHUB_REPO}"
 success "WIF binding created"
 
 # ---------------------------------------------------------------------------
-# 7. Generate a Django SECRET_KEY
+# 7. Generate Django SECRET_KEYs (one per environment)
 # ---------------------------------------------------------------------------
-DJANGO_SECRET_KEY=$(python3 -c "
-import secrets, string
-chars = string.ascii_letters + string.digits + '!@#\$%^&*(-_=+)'
-print(''.join(secrets.choice(chars) for _ in range(60)))
-")
+DJANGO_SECRET_KEY=$(openssl rand -base64 60 | tr -dc 'A-Za-z0-9!@#%^&*(-_=+)' | head -c 60)
+DJANGO_SECRET_KEY_STAGING=$(openssl rand -base64 60 | tr -dc 'A-Za-z0-9!@#%^&*(-_=+)' | head -c 60)
 
 # ---------------------------------------------------------------------------
 # 8. Print summary — everything needed for GitHub secrets
@@ -246,14 +259,10 @@ echo "==========================================================================
 echo "  ✅  GCP SETUP COMPLETE"
 echo "============================================================================="
 echo ""
-echo "Add these as secrets/variables in GitHub:"
-echo "  https://github.com/${GITHUB_REPO}/settings/environments"
+echo "Go to: https://github.com/${GITHUB_REPO}/settings/environments"
 echo ""
-echo "Create TWO environments: 'staging' and 'production'"
-echo "Add these to BOTH (same values unless you want separate DBs):"
-echo ""
-echo "  Secrets:"
-echo "    GCP_WORKLOAD_IDENTITY_PROVIDER  = ${WIF_PROVIDER_ID}"
+echo "── PRODUCTION environment secrets ──────────────────────────────────────────"
+echo "    GCP_WORKLOAD_IDENTITY_PROVIDER  = ${WIF_PROVIDER_RESOURCE}"
 echo "    GCP_SERVICE_ACCOUNT             = ${SA_EMAIL}"
 echo "    GCP_PROJECT_ID                  = ${PROJECT_ID}"
 echo "    CLOUD_SQL_CONNECTION_NAME       = ${CLOUD_SQL_CONNECTION_NAME}"
@@ -261,29 +270,18 @@ echo "    DJANGO_SECRET_KEY               = ${DJANGO_SECRET_KEY}"
 echo "    DB_NAME                         = ${DB_NAME}"
 echo "    DB_USER                         = ${DB_USER}"
 echo "    DB_PASSWORD                     = ${DB_PASSWORD}"
-echo ""
-echo "  Variables:"
 echo "    GCS_BUCKET_NAME                 = ${GCS_BUCKET}"
 echo ""
-echo "Next steps:"
-echo "  1. Add the secrets above to GitHub"
-echo "  2. Create app.yaml in the repo root (run: make app-yaml or see below)"
-echo "  3. Push to main to trigger a staging deploy"
+echo "── STAGING environment secrets ─────────────────────────────────────────────"
+echo "    GCP_WORKLOAD_IDENTITY_PROVIDER  = ${WIF_PROVIDER_RESOURCE}"
+echo "    GCP_SERVICE_ACCOUNT             = ${SA_EMAIL}"
+echo "    GCP_PROJECT_ID                  = ${PROJECT_ID}"
+echo "    CLOUD_SQL_CONNECTION_NAME       = ${CLOUD_SQL_CONNECTION_NAME}"
+echo "    DJANGO_SECRET_KEY               = ${DJANGO_SECRET_KEY_STAGING}"
+echo "    DB_NAME                         = ${DB_NAME_STAGING}"
+echo "    DB_USER                         = ${DB_USER_STAGING}"
+echo "    DB_PASSWORD                     = ${DB_PASSWORD_STAGING}"
+echo "    GCS_BUCKET_NAME                 = ${GCS_BUCKET}"
 echo ""
-echo "app.yaml minimum:"
-echo "---"
-cat <<APPYAML
-runtime: python313
-service: default
-entrypoint: gunicorn -b :\$PORT core.wsgi:application
-
-env_variables:
-  DJANGO_SETTINGS_MODULE: core.settings.production
-
-beta_settings:
-  cloud_sql_instances: ${CLOUD_SQL_CONNECTION_NAME}
-APPYAML
-echo "---"
-echo ""
-echo "Save the DB_PASSWORD somewhere safe — it won't be shown again."
+echo "Save the passwords above — they won't be shown again."
 echo "============================================================================="

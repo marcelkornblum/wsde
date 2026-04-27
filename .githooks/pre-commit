@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pre-commit hook – auto-fix lint issues and format staged Python files.
-# Installed via: make install-hooks
+# Installed via: just install-hooks
 
 set -e
 
@@ -12,7 +12,7 @@ if [ -z "$STAGED_PY_FILES" ]; then
 fi
 
 # Run ruff fix & format on the whole src/ tree (fast, and avoids partial-file issues).
-make fix
+just fix
 
 # Re-stage any files that were modified by the formatter.
 echo "$STAGED_PY_FILES" | xargs git add

@@ -64,7 +64,7 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 - Settings: `base.py` → `dev.py` → `production.py` → `local.py` (gitignored). Default is `core.settings.production`.
 - Auth: django-allauth 65.x, Google + Apple Sign-In, admin approval gate before members area.
 
-## Key Make Targets
+## Key `just` Recipes
 
 | Target                                       | Purpose                                                          |
 | -------------------------------------------- | ---------------------------------------------------------------- |
@@ -110,7 +110,7 @@ HTTP concerns only: parse request, auth check, call services, return response.
 
 ## E2E Tests (Playwright)
 
-- Tests live in `e2e/`. Run with `make e2e`.
+- Tests live in `e2e/`. Run with `just e2e`.
 - All helpers in `e2e/helpers.py`. Never write local `go_to_*` helpers.
 - Use `go(page, base_url, '/path/')`, never `page.goto(...)`.
 - Use `require_or_skip(value, 'reason')`, never `if not x: return`.

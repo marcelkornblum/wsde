@@ -28,7 +28,9 @@ jobs:
         run: uv sync --frozen
 
       - name: Run linter and type checker
-        run: make check
+        run: |
+          uv run ruff check src/
+          uv run ty check src/
 
   # -------------------------------------------------------------------
   # Migration check (needs PostgreSQL service container)
@@ -72,11 +74,11 @@ jobs:
         run: uv sync --frozen
 
       - name: Check for missing migrations
-        run: make check-migrations
+        run: uv run python manage.py makemigrations --check --dry-run
 
   # -------------------------------------------------------------------
   # Unit test suite (needs PostgreSQL service container)
-  # E2E tests are a separate job run via make e2e (added when Playwright
+  # E2E tests are a separate job run via just e2e (added when Playwright
   # infra is wired up).
   # -------------------------------------------------------------------
   unit-tests:

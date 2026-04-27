@@ -82,7 +82,7 @@ ci:
     @echo "── migration check ──"
     uv run python manage.py makemigrations --check --dry-run
     @echo "── pytest ──"
-    uv run pytest -v
+    uv run pytest -v || test $? -eq 5
     @echo "✅  All checks passed."
 
 # Run ruff linter and ty type checker

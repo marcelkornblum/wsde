@@ -16,25 +16,36 @@ bd dolt push          # Push beads data to remote
 
 **Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
 
+Use the `just` recipes — they encode the exact steps:
+
 ```bash
-# Start work
-git checkout main
-git pull --ff-only origin main        # always start from latest main
-git checkout -b <descriptive-branch>  # create feature branch
-
-# ... make changes, commit ...
-
-# Finish work
-bd dolt push
-git push -u origin <descriptive-branch>
-# Open a PR on GitHub
+just work-start <branch-name>       # checkout main + pull + create branch
+# ... changes ...
+just ci                             # lint + types + migrations + tests (always before pushing)
+just work-save "<commit message>"   # commit + push to current branch (adding to existing PR)
+just work-done "<commit message>"   # ci + commit + push (use for final commit on a PR)
+just work-pr "<PR title>" [issue]   # open PR via gh CLI, then close bd issue
 ```
 
+`work-done` runs `just ci` automatically. `work-save` skips it — use for interim commits when you've already verified locally.
+
+**bd rule: the issue is closed inside `work-pr`, after the PR is open.** Never close it before the PR exists.
+
 **Rules:**
+
 - Always `git pull --ff-only origin main` before creating a branch
 - Branch names should be descriptive (e.g. `wsde-3ln.5-hooks`, `fix-cd-proxy-socket`)
 - Open a PR after pushing — work is not complete until a PR exists
 - Never amend or force-push to branches that already have a PR open
+
+---
+
+## Interaction Preferences (MANDATORY)
+
+- **Confirm before acting** on anything non-trivial. Describe the plan first, wait for approval.
+- **Ask when ambiguous.** If the request could mean two different things, ask rather than guess.
+- **Report blockers immediately.** Don’t silently work around a problem — surface it.
+- **Prefer small focused PRs.** One concern per branch.
 
 ---
 
@@ -43,6 +54,7 @@ git push -u origin <descriptive-branch>
 Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
 
 **Use these forms instead:**
+
 ```bash
 # Force overwrite without prompting
 cp -f source dest           # NOT: cp source dest
@@ -55,12 +67,14 @@ cp -rf source dest          # NOT: cp -r source dest
 ```
 
 **Other commands that may prompt:**
+
 - `scp` - use `-o BatchMode=yes` for non-interactive
 - `ssh` - use `-o BatchMode=yes` to fail instead of prompting
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -76,9 +90,38 @@ bd close <id>         # Complete work
 
 ### Rules
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+- Use **`bd` issues** for all task tracking. Run `bd ready` to find work, `bd update <id> --claim` to claim it.
+- **Never** use the built-in TodoWrite/todo list tool — use `bd` instead.
+- Create a `bd` issue for anything that needs follow-up before closing work.
+
+### Full lifecycle for non-trivial requests
+
+```bash
+# 1. Before starting — create an issue and branch in one step
+just work-start my-branch "" "Short title of work"  # creates issue, claims it, makes branch
+# — or claim an existing issue —
+just work-start my-branch bd-a1b2                   # branch + claim existing issue
+# — or create the issue first, then branch —
+just work-new "Short title of work"                 # create + claim → prints id
+just work-start my-branch bd-a1b2                   # branch + claim
+
+# 2. Do the work...
+
+# 3a. Add interim commits to the branch / existing PR (no permission needed)
+just work-save "feat: wip changes"   # commit + push, no ci gate
+
+# 3b. Final commit: run ci + commit + push (no bd interaction)
+just work-done "feat: my change"
+
+# 4. Open the PR and close the bd issue (issue is closed here, after PR exists)
+just work-pr "PR title" bd-a1b2
+```
+
+**Rules:**
+
+- Any request that takes more than a single file edit gets a `bd` issue.
+- Claim the issue before doing any work (`--claim` is idempotent if already claimed by you).
+- Close the issue when the PR is open, not when it's merged.
 
 ## Session Completion
 
@@ -91,10 +134,8 @@ bd close <id>         # Complete work
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE via PR** - This is MANDATORY:
    ```bash
-   git pull --rebase origin main   # ensure branch is from latest main
-   bd dolt push
-   git push -u origin <branch>
-   # Then open a PR on GitHub — never push directly to main
+   just work-done "<commit msg>"   # ci + commit + push
+   just work-pr "<PR title>" [bd-id]  # open PR then close issue
    git status  # MUST show "up to date with origin"
    ```
 5. **Clean up** - Clear stashes, prune remote branches
@@ -102,6 +143,7 @@ bd close <id>         # Complete work
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds and a PR is open
 - NEVER push directly to `main` — always use a feature branch + PR
 - Always `git pull --ff-only` (or `--rebase`) from main before creating a branch
@@ -171,7 +213,7 @@ Rules:
 
 - Never write production code without a failing test.
 - Run tests after every RED and GREEN step.
-- After all tests pass, run `make check` and `make fix`.
+- After all tests pass, run `just check` and `just fix`.
 - Never leave failing tests.
 
 ### Unit tests
@@ -186,7 +228,7 @@ Rules:
 ### E2E tests (Playwright)
 
 - Every significant front-end feature must have Playwright e2e tests in `e2e/`.
-- Use `make e2e` (headless).
+- Use `just e2e` (headless).
 - All navigation helpers live in `e2e/helpers.py` — never write local `go_to_*` helpers in test files.
 
 #### `e2e/helpers.py` canonical helpers
@@ -214,12 +256,12 @@ class TestMyFeature:
         # ... interact and assert
 ```
 
-Never use `page.goto(f'{base_url}/path/')` — always `go(page, base_url, '/path/')`.  
+Never use `page.goto(f'{base_url}/path/')` — always `go(page, base_url, '/path/')`.
 Never use `if not x: return` — always `require_or_skip(x, 'reason')`.
 
 #### E2E gotchas (Alpine.js + Playwright)
 
-- **CDN scripts won't work in headless e2e** — serve Alpine.js and HTMX from local static files (`make js-vendor`), never CDN URLs.
+- **CDN scripts won't work in headless e2e** — serve Alpine.js and HTMX from local static files (`just js-vendor`), never CDN URLs.
 - **`x-show` not `x-if`** — `x-if` removes elements from DOM; Playwright cannot find them before Alpine initialises. `x-show` keeps elements in DOM (hidden via `display:none`). Pair with `x-cloak` to prevent flash.
 - **Wait for Alpine to render** — after a click that triggers Alpine state change, add `expect(element).to_be_visible()` before pressing keys.
 - **`this` in event handlers vs `init()`** — inside `@keydown` on an input, `this` is the input, not the component root. Store `this._root = this` in `init()` and use `_root` for DOM traversal.
@@ -247,23 +289,30 @@ Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No djang
 
 - Templates live inside each app at `<app>/templates/`. Base template in `core/templates/`.
 - URL patterns in `core/urls.py` — include new app URL confs from there.
-- Tailwind version pinned in `Makefile` (`TW_VERSION`). Binary gitignored, auto-downloaded via `make tw-install`.
-- Alpine.js and HTMX pinned in `Makefile` (`ALPINE_VERSION`, `HTMX_VERSION`). Downloaded to `src/static/js/` via `make js-vendor`.
+- Tailwind version pinned in `justfile` (`TW_VERSION`). Binary gitignored, auto-downloaded via `just tw-install`.
+- Alpine.js and HTMX pinned in `justfile` (`ALPINE_VERSION`, `HTMX_VERSION`). Downloaded to `src/static/js/` via `just js-vendor`.
 - `BigAutoField` for all primary keys (set in `base.py`).
 - Use `uv` for dependencies (not pip).
 
 ---
 
-## Key Make Targets
+## Key `just` Recipes
 
-| Target | Purpose |
-|---|---|
-| `make setup` | Full local setup (one-time) |
-| `make runserver` | Start Django dev server |
-| `make migrate` / `makemigrations` | Database migrations |
-| `make check` | ruff + ty quality gates |
-| `make fix` | Auto-fix and format |
-| `make test` / `test-one t="…"` | pytest |
-| `make install-hooks` | Wire `.githooks/` pre-commit hook |
-| `make js-vendor` | Download pinned Alpine.js + HTMX |
-| `make tw-install` / `tw-build` / `tw-watch` | Tailwind CSS v4 standalone CLI |
+| Recipe                                       | Purpose                                                          |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `just setup`                                 | Full local setup (one-time)                                      |
+| `just runserver`                             | Start Django dev server                                          |
+| `just migrate` / `makemigrations`            | Database migrations                                              |
+| `just check`                                 | ruff + ty quality gates                                          |
+| `just fix`                                   | Auto-fix and format                                              |
+| `just test` / `test-one "…"`                 | pytest                                                           |
+| `just install-hooks`                         | Wire `.githooks/` pre-commit hook                                |
+| `just js-vendor`                             | Download pinned Alpine.js + HTMX                                 |
+| `just tw-install` / `tw-build` / `tw-watch`  | Tailwind CSS v4 standalone CLI                                   |
+| `just work-start <branch> [issue] ["title"]` | Start work: checkout main + pull + branch (+ create/claim issue) |
+| `just ci`                                    | Full quality gate: lint + types + migrations + tests             |
+| `just work-save "msg"`                       | Commit + push to current branch (add commits to existing PR)     |
+| `just work-done "msg"`                           | Run ci + commit + push (no bd)                                   |
+| `just work-pr "title" [issue]`                   | Open PR then close bd issue (issue closed = PR open)             |
+| `just work-new "title"`                      | Create and claim a new bd issue                                  |
+| `just bd-close <issue>`                      | Close a bd issue standalone                                      |

@@ -3,19 +3,25 @@ name: Deploy
 # ---------------------------------------------------------------------------
 # Triggers → environments:
 #
-#   push to main         →  staging   (auto)
-#   workflow_dispatch    →  staging or production (manual, with environment input)
+#   release (published)  →  production  (auto, via GitHub release)
+#   push to main         →  staging     (auto)
+#   workflow_dispatch    →  staging or production (manual override)
 #
 # Each GitHub environment must have:
 #   - GCP_WORKLOAD_IDENTITY_PROVIDER secret  (Workload Identity Federation pool provider)
 #   - GCP_SERVICE_ACCOUNT secret             (service account email for impersonation)
 #   - GCP_PROJECT_ID secret                  (GCP project ID)
-#   - GAE_SERVICE variable                   (App Engine service name, e.g. "default")
+#   - CLOUD_SQL_CONNECTION_NAME secret       (e.g. project:region:instance)
+#   - DJANGO_SECRET_KEY secret
+# Required variables per GitHub environment:
+#   - GCS_BUCKET_NAME
 #
 # Recommended: add a manual approval gate on the "production" environment in
 # GitHub → Settings → Environments.
 # ---------------------------------------------------------------------------
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
   workflow_dispatch:
@@ -42,11 +48,11 @@ jobs:
       - name: Determine environment from trigger
         id: resolve
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=staging" >> "$GITHUB_OUTPUT"
-          fi
+          case "${{ github.event_name }}" in
+            release)           echo "environment=production" >> "$GITHUB_OUTPUT" ;;
+            workflow_dispatch) echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT" ;;
+            *)                 echo "environment=staging" >> "$GITHUB_OUTPUT" ;;
+          esac
 
   # -------------------------------------------------------------------
   # Deploy to Google App Engine
@@ -54,12 +60,21 @@ jobs:
   # Uses Workload Identity Federation (keyless auth) — no long-lived
   # service account JSON keys needed.
   #
+  # Order of operations:
+  #   1. Auth + SDK setup
+  #   2. collectstatic → GCS
+  #   3. Run migrations via Cloud SQL Auth Proxy (proxy → Cloud SQL)
+  #   4. gcloud app deploy
+  #
   # Required secrets per GitHub environment:
   #   GCP_WORKLOAD_IDENTITY_PROVIDER  — full provider resource name
   #   GCP_SERVICE_ACCOUNT             — service account email
   #   GCP_PROJECT_ID                  — GCP project ID
+  #   CLOUD_SQL_CONNECTION_NAME       — e.g. my-project:europe-west1:wsde
+  #   DJANGO_SECRET_KEY               — Django secret key
+  #   DB_NAME / DB_USER / DB_PASSWORD — Cloud SQL credentials
   # Required variables per GitHub environment:
-  #   GAE_SERVICE                     — App Engine service name
+  #   GCS_BUCKET_NAME                 — GCS bucket for static files
   # -------------------------------------------------------------------
   deploy:
     name: Deploy to GAE (${{ needs.resolve-environment.outputs.environment }})
@@ -98,16 +113,45 @@ jobs:
         run: uv run python manage.py collectstatic --noinput
         env:
           DJANGO_SETTINGS_MODULE: core.settings.production
-          GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
           SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+
+      - name: Download Cloud SQL Auth Proxy
+        run: |
+          curl -fsSL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.15.2/cloud-sql-proxy.linux.amd64" \
+            -o cloud-sql-proxy
+          chmod +x cloud-sql-proxy
+
+      - name: Start Cloud SQL Auth Proxy
+        run: |
+          ./cloud-sql-proxy \
+            --unix-socket /tmp/cloudsql \
+            "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" &
+          # Wait for the socket to appear (max 15s)
+          for i in $(seq 1 15); do
+            [ -S "/tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" ] && break
+            sleep 1
+          done
+
+      - name: Run database migrations
+        run: uv run python manage.py migrate --noinput
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.production
+          SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+          # Connect via the proxy Unix socket
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: /tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
+          DB_PORT: ""
+
+      - name: Stop Cloud SQL Auth Proxy
+        if: always()
+        run: pkill -f cloud-sql-proxy || true
 
       - name: Deploy to App Engine
         run: gcloud app deploy app.yaml --quiet --project="${{ secrets.GCP_PROJECT_ID }}"
-
-      - name: Run migrations via Cloud Run Jobs (or Cloud SQL Proxy)
-        run: |
-          echo "ℹ️  Migrations must be run separately via Cloud Run Job or Cloud SQL Proxy."
-          echo "    See docs/deployment.md for the migration runbook."
 
       - name: Write job summary
         if: always()
@@ -128,6 +172,20 @@ jobs:
           case "$ENV" in
             production) ENV_ICON="🚀" ;;
             staging)    ENV_ICON="🔬" ;;
+            *)          ENV_ICON="📦" ;;
+          esac
+
+          {
+            echo "## ${STATUS_ICON} Deploy — ${ENV_ICON} \`${ENV}\`"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | ${STATUS_ICON} ${STATUS^} |"
+            echo "| **Environment** | ${ENV_ICON} \`${ENV}\` |"
+            echo "| **Triggered by** | \`${{ github.event_name }}\` (actor: \`${ACTOR}\`) |"
+            echo "| **Commit** | \`${SHA:0:7}\` |"
+            echo "| **Run** | [View full log](${RUN_URL}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
             *)          ENV_ICON="📦" ;;
           esac
 

@@ -39,7 +39,7 @@ DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 GS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "")
 GS_DEFAULT_ACL = "publicRead"
-STATIC_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/static/"
+STATIC_URL: str = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/static/"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

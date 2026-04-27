@@ -12,10 +12,12 @@ name: Deploy
 #   - GCP_SERVICE_ACCOUNT             (service account email for impersonation)
 #   - GCP_PROJECT_ID                  (GCP project ID)
 #   - CLOUD_SQL_CONNECTION_NAME       (e.g. project:region:instance — different per env)
-#   - DJANGO_SECRET_KEY
-#   - DB_NAME / DB_USER / DB_PASSWORD (Cloud SQL credentials — different per env)
 # Required variables per GitHub environment:
 #   - GCS_BUCKET_NAME                 (e.g. wsde-static / wsde-static-staging)
+#
+# All other secrets (SECRET_KEY, DB_NAME, DB_USER, DB_PASSWORD) are loaded
+# at runtime from GCP Secret Manager — no GitHub secrets needed for them.
+# Secret names: SECRET_KEY / SECRET_KEY_STAGING, DB_NAME / DB_NAME_STAGING, etc.
 #
 # GCP resources needed:
 #   staging:    Cloud SQL instance wsde-db-staging, GCS bucket wsde-static-staging
@@ -132,12 +134,7 @@ jobs:
         run: uv run python manage.py collectstatic --noinput
         env:
           DJANGO_SETTINGS_MODULE: ${{ steps.config.outputs.settings }}
-          SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
-          # Required by production.py at import time (not used by collectstatic)
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Download Cloud SQL Auth Proxy
         run: |
@@ -163,12 +160,7 @@ jobs:
         run: uv run python manage.py migrate --noinput
         env:
           DJANGO_SETTINGS_MODULE: ${{ steps.config.outputs.settings }}
-          SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
-          # Connect via the proxy Unix socket
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_HOST: /tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
           DB_PORT: ""
 

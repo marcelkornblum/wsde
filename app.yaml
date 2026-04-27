@@ -11,11 +11,9 @@ beta_settings:
   cloud_sql_instances: wsde-marcelkornblum:europe-west2:wsde-db
 
 # GAE Standard automatic scaling
-# min_instances: 1 keeps one instance warm to avoid cold-start latency in production.
 # Manual deploy approval is enforced via the "production" GitHub environment gate —
 # see GitHub → Settings → Environments → production → Required reviewers.
 automatic_scaling:
-  min_instances: 1
   max_instances: 2         # explicit value required since March 2025; default was changed to 20
 
 handlers:

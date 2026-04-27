@@ -2,6 +2,10 @@
 import os
 import sys
 
+# src/ layout: add src/ to sys.path so Django can find apps when running manage.py
+# from the repo root. (pytest handles this via pythonpath in pyproject.toml.)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 def main() -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings.dev")

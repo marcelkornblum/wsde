@@ -2,6 +2,18 @@
 
 > Full agent instructions in `AGENTS.md`. This file contains only what Copilot needs for coding decisions.
 
+## Git Workflow (MANDATORY)
+
+**Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
+
+```bash
+git checkout main && git pull --ff-only origin main
+git checkout -b <descriptive-branch>
+# ... changes + commits ...
+git push -u origin <descriptive-branch>
+# Open a PR — work is not complete until a PR exists
+```
+
 ## Project Overview
 
 Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud SQL. GAE Standard. Front end: Django templates + HTMX + Alpine.js + Tailwind CSS v4. **No django-cotton.**

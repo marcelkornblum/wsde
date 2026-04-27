@@ -1,0 +1,59 @@
+# .gcloudignore — files excluded from `gcloud app deploy` uploads.
+# gcloud uses this file in preference to .gitignore when it exists.
+# Keep this in sync with .gitignore for anything that shouldn't be deployed.
+
+# Git
+.git/
+.github/
+
+# Python virtual environment (dependencies are installed from requirements on GAE)
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Local/dev config
+src/core/settings/local.py
+.env
+.env.*
+.python-version
+
+# Tailwind binary (auto-downloaded, not needed at runtime)
+bin/
+
+# Test / coverage / lint caches
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ty_cache/
+.ruff_cache/
+
+# E2E tests (not needed in production)
+e2e/
+
+# Dev tooling
+justfile
+scripts/
+.githooks/
+.beads/
+.dolt/
+*.db
+.beads-credential-key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+AGENTS.md
+LICENSE
+
+# Media uploads (served from GCS, not GAE)
+media/

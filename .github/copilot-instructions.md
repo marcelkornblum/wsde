@@ -28,6 +28,23 @@ make git-pr t="<PR title>"          # open PR via gh CLI
 - **Never** use the built-in TodoWrite/todo list tool — use `bd` instead.
 - Create a `bd` issue for anything that needs follow-up before closing work.
 
+Full lifecycle for any non-trivial request:
+
+```bash
+# Create + claim
+make bd-new t="Short title"          # quick-create and claim
+# or link to existing issue at branch creation:
+make git-start b="branch" i=bd-a1b2  # creates branch AND claims issue
+
+# Close issue + commit + push
+make git-done m="commit msg" i=bd-a1b2
+
+# Open PR
+make git-pr t="PR title"
+```
+
+Close the issue when the PR is open (not when merged). Any request beyond a single file edit gets an issue.
+
 ## Project Overview
 
 Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud SQL. GAE Standard. Front end: Django templates + HTMX + Alpine.js + Tailwind CSS v4. **No django-cotton.**
@@ -40,19 +57,21 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 
 ## Key Make Targets
 
-| Target | Purpose |
-|---|---|
-| `make setup` | Full local setup (one-time) |
-| `make runserver` | Start dev server |
-| `make migrate` / `makemigrations` | Database migrations |
-| `make check` | ruff + ty |
-| `make fix` | Auto-fix + format |
-| `make test` / `test-one t="…"` | pytest |
-| `make tw-build` | Build Tailwind CSS |
-| `make js-vendor` | Download Alpine.js + HTMX |
-| `make git-start b="…"` | Start work: checkout main + pull + new branch |
-| `make git-done m="…"` | Finish work: stage + commit + push |
-| `make git-pr t="…"` | Open PR via gh CLI |
+| Target                            | Purpose                                       |
+| --------------------------------- | --------------------------------------------- |
+| `make setup`                      | Full local setup (one-time)                   |
+| `make runserver`                  | Start dev server                              |
+| `make migrate` / `makemigrations` | Database migrations                           |
+| `make check`                      | ruff + ty                                     |
+| `make fix`                        | Auto-fix + format                             |
+| `make test` / `test-one t="…"`    | pytest                                        |
+| `make tw-build`                   | Build Tailwind CSS                            |
+| `make js-vendor`                  | Download Alpine.js + HTMX                     |
+| `make git-start b="…" [i="…"]`   | Start work: checkout main + pull + new branch (+ claim bd issue) |
+| `make git-done m="…" [i="…"]`    | Finish work: stage + commit + push (+ close bd issue)            |
+| `make git-pr t="…"`               | Open PR via gh CLI                                                |
+| `make bd-new t="…"`               | Create and claim a new bd issue                                   |
+| `make bd-close i="…"`             | Close a bd issue                                                  |
 
 ## Services Layer (MANDATORY)
 

@@ -26,6 +26,7 @@ make git-pr t="<PR title>"          # open PR via gh CLI
 ```
 
 **Rules:**
+
 - Always `git pull --ff-only origin main` before creating a branch
 - Branch names should be descriptive (e.g. `wsde-3ln.5-hooks`, `fix-cd-proxy-socket`)
 - Open a PR after pushing — work is not complete until a PR exists
@@ -47,6 +48,7 @@ make git-pr t="<PR title>"          # open PR via gh CLI
 Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
 
 **Use these forms instead:**
+
 ```bash
 # Force overwrite without prompting
 cp -f source dest           # NOT: cp source dest
@@ -59,12 +61,14 @@ cp -rf source dest          # NOT: cp -r source dest
 ```
 
 **Other commands that may prompt:**
+
 - `scp` - use `-o BatchMode=yes` for non-interactive
 - `ssh` - use `-o BatchMode=yes` to fail instead of prompting
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -83,6 +87,32 @@ bd close <id>         # Complete work
 - Use **`bd` issues** for all task tracking. Run `bd ready` to find work, `bd update <id> --claim` to claim it.
 - **Never** use the built-in TodoWrite/todo list tool — use `bd` instead.
 - Create a `bd` issue for anything that needs follow-up before closing work.
+
+### Full lifecycle for non-trivial requests
+
+```bash
+# 1. Before starting — create an issue if one doesn't exist, then claim it
+bd q "Short title of work"          # quick-create; prints the new ID (e.g. bd-a1b2)
+bd update bd-a1b2 --claim           # sets status=in_progress, assignee=you
+# — or use the make shortcut —
+make bd-new t="Short title of work" # create + claim in one step
+
+# 2. Start the branch, optionally linking it to the issue
+make git-start b="my-branch" i=bd-a1b2   # creates branch AND claims the issue
+
+# 3. Do the work...
+
+# 4. Commit, close the issue, push
+make git-done m="feat: my change" i=bd-a1b2   # closes issue + commits + pushes
+
+# 5. Open the PR
+make git-pr t="PR title"
+```
+
+**Rules:**
+- Any request that takes more than a single file edit gets a `bd` issue.
+- Claim the issue before doing any work (`--claim` is idempotent if already claimed by you).
+- Close the issue when the PR is open, not when it's merged.
 
 ## Session Completion
 
@@ -106,6 +136,7 @@ bd close <id>         # Complete work
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds and a PR is open
 - NEVER push directly to `main` — always use a feature branch + PR
 - Always `git pull --ff-only` (or `--rebase`) from main before creating a branch
@@ -218,7 +249,7 @@ class TestMyFeature:
         # ... interact and assert
 ```
 
-Never use `page.goto(f'{base_url}/path/')` — always `go(page, base_url, '/path/')`.  
+Never use `page.goto(f'{base_url}/path/')` — always `go(page, base_url, '/path/')`.
 Never use `if not x: return` — always `require_or_skip(x, 'reason')`.
 
 #### E2E gotchas (Alpine.js + Playwright)
@@ -260,14 +291,14 @@ Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No djang
 
 ## Key Make Targets
 
-| Target | Purpose |
-|---|---|
-| `make setup` | Full local setup (one-time) |
-| `make runserver` | Start Django dev server |
-| `make migrate` / `makemigrations` | Database migrations |
-| `make check` | ruff + ty quality gates |
-| `make fix` | Auto-fix and format |
-| `make test` / `test-one t="…"` | pytest |
-| `make install-hooks` | Wire `.githooks/` pre-commit hook |
-| `make js-vendor` | Download pinned Alpine.js + HTMX |
-| `make tw-install` / `tw-build` / `tw-watch` | Tailwind CSS v4 standalone CLI |
+| Target                                      | Purpose                           |
+| ------------------------------------------- | --------------------------------- |
+| `make setup`                                | Full local setup (one-time)       |
+| `make runserver`                            | Start Django dev server           |
+| `make migrate` / `makemigrations`           | Database migrations               |
+| `make check`                                | ruff + ty quality gates           |
+| `make fix`                                  | Auto-fix and format               |
+| `make test` / `test-one t="…"`              | pytest                            |
+| `make install-hooks`                        | Wire `.githooks/` pre-commit hook |
+| `make js-vendor`                            | Download pinned Alpine.js + HTMX  |
+| `make tw-install` / `tw-build` / `tw-watch` | Tailwind CSS v4 standalone CLI    |

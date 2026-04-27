@@ -128,16 +128,18 @@ app-yaml: ## Show the committed app.yaml location (it's already in the repo)
 # ---------------------------------------------------------------------------
 
 .PHONY: git-start
-git-start: ## Start a new piece of work. Usage: make git-start b="my-branch-name"
-	$(if $(b),,$(error Usage: make git-start b="<branch-name>"))
+git-start: ## Start work on a branch. Usage: make git-start b="branch" [i="bd-id"]
+	$(if $(b),,$(error Usage: make git-start b="<branch-name>" [i="<bd-issue-id>"]))
 	git checkout main
 	git pull --ff-only origin main
 	git checkout -b $(b)
+	$(if $(i),bd update $(i) --claim && echo "✅  Claimed issue $(i).",:)
 	@echo "✅  On branch '$(b)', ready to work."
 
 .PHONY: git-done
-git-done: ## Stage all changes and commit. Usage: make git-done m="commit message"
-	$(if $(m),,$(error Usage: make git-done m="<commit message>"))
+git-done: ## Stage, commit and push. Usage: make git-done m="msg" [i="bd-id"]
+	$(if $(m),,$(error Usage: make git-done m="<commit message>" [i="<bd-issue-id>"]))
+	$(if $(i),bd close $(i) && echo "✅  Closed issue $(i).",:)
 	bd dolt push
 	git add -A
 	git commit -m "$(m)"
@@ -149,6 +151,22 @@ git-pr: ## Open a PR for the current branch. Usage: make git-pr t="PR title" [b=
 	$(if $(t),,$(error Usage: make git-pr t="<title>" [b="<body>"]))
 	gh pr create --title "$(t)" --body "$(or $(b), )" --base main
 	@echo "✅  PR opened."
+
+.PHONY: bd-new
+bd-new: ## Create and immediately claim a new bd issue. Usage: make bd-new t="title"
+	$(if $(t),,$(error Usage: make bd-new t="<issue title>"))
+	$(eval ISSUE_ID := $(shell bd q "$(t)"))
+	bd update $(ISSUE_ID) --claim
+	@echo "✅  Created and claimed $(ISSUE_ID): $(t)"
+	@echo "    Use: make git-start b=\"my-branch\" i=$(ISSUE_ID)"
+	@echo "    Then: make git-done m=\"...\" i=$(ISSUE_ID)"
+
+.PHONY: bd-close
+bd-close: ## Close a bd issue. Usage: make bd-close i="bd-id"
+	$(if $(i),,$(error Usage: make bd-close i="<bd-issue-id>"))
+	bd close $(i)
+	bd dolt push
+	@echo "✅  Closed issue $(i)."
 
 # ---------------------------------------------------------------------------
 # Frontend – vendor JS (Alpine.js + HTMX, downloaded to src/static/js/)

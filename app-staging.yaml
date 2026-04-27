@@ -1,0 +1,21 @@
+runtime: python313
+service: staging
+entrypoint: gunicorn -b :$PORT core.wsgi:application
+
+env_variables:
+  DJANGO_SETTINGS_MODULE: core.settings.staging
+  CLOUD_SQL_CONNECTION_NAME: wsde-marcelkornblum:europe-west2:wsde-db-staging
+  GCS_BUCKET_NAME: wsde-static-staging
+
+beta_settings:
+  cloud_sql_instances: wsde-marcelkornblum:europe-west2:wsde-db-staging
+
+# Keep staging small — one instance is enough
+automatic_scaling:
+  max_instances: 1
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always
+    redirect_http_response_code: 301

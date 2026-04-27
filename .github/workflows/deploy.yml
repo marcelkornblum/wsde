@@ -7,14 +7,19 @@ name: Deploy
 #   push to main         →  staging     (auto)
 #   workflow_dispatch    →  staging or production (manual override)
 #
-# Each GitHub environment must have:
-#   - GCP_WORKLOAD_IDENTITY_PROVIDER secret  (Workload Identity Federation pool provider)
-#   - GCP_SERVICE_ACCOUNT secret             (service account email for impersonation)
-#   - GCP_PROJECT_ID secret                  (GCP project ID)
-#   - CLOUD_SQL_CONNECTION_NAME secret       (e.g. project:region:instance)
-#   - DJANGO_SECRET_KEY secret
+# Each GitHub environment (staging + production) must have these secrets:
+#   - GCP_WORKLOAD_IDENTITY_PROVIDER  (Workload Identity Federation pool provider)
+#   - GCP_SERVICE_ACCOUNT             (service account email for impersonation)
+#   - GCP_PROJECT_ID                  (GCP project ID)
+#   - CLOUD_SQL_CONNECTION_NAME       (e.g. project:region:instance — different per env)
+#   - DJANGO_SECRET_KEY
+#   - DB_NAME / DB_USER / DB_PASSWORD (Cloud SQL credentials — different per env)
 # Required variables per GitHub environment:
-#   - GCS_BUCKET_NAME
+#   - GCS_BUCKET_NAME                 (e.g. wsde-static / wsde-static-staging)
+#
+# GCP resources needed:
+#   staging:    Cloud SQL instance wsde-db-staging, GCS bucket wsde-static-staging
+#   production: Cloud SQL instance wsde-db,         GCS bucket wsde-static
 #
 # Recommended: add a manual approval gate on the "production" environment in
 # GitHub → Settings → Environments.
@@ -111,10 +116,22 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Resolve deployment config
+        id: config
+        run: |
+          ENV="${{ needs.resolve-environment.outputs.environment }}"
+          if [[ "$ENV" == "production" ]]; then
+            echo "app_yaml=app.yaml" >> "$GITHUB_OUTPUT"
+            echo "settings=core.settings.production" >> "$GITHUB_OUTPUT"
+          else
+            echo "app_yaml=app-staging.yaml" >> "$GITHUB_OUTPUT"
+            echo "settings=core.settings.staging" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Collect static files
         run: uv run python manage.py collectstatic --noinput
         env:
-          DJANGO_SETTINGS_MODULE: core.settings.production
+          DJANGO_SETTINGS_MODULE: ${{ steps.config.outputs.settings }}
           SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
           # Required by production.py at import time (not used by collectstatic)
@@ -145,7 +162,7 @@ jobs:
       - name: Run database migrations
         run: uv run python manage.py migrate --noinput
         env:
-          DJANGO_SETTINGS_MODULE: core.settings.production
+          DJANGO_SETTINGS_MODULE: ${{ steps.config.outputs.settings }}
           SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
           # Connect via the proxy Unix socket
@@ -160,7 +177,7 @@ jobs:
         run: pkill -f cloud-sql-proxy || true
 
       - name: Deploy to App Engine
-        run: gcloud app deploy app.yaml --quiet --project="${{ secrets.GCP_PROJECT_ID }}"
+        run: gcloud app deploy "${{ steps.config.outputs.app_yaml }}" --quiet --project="${{ secrets.GCP_PROJECT_ID }}"
 
       - name: Write job summary
         if: always()

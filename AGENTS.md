@@ -82,3 +82,161 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+---
+
+## Project Overview
+
+**Worst Stag Do Ever** — a members-only event site with a promotional public face, built on Django + Wagtail + GAE Standard.
+
+- **Stack**: Python 3.13, Django 6.x, Wagtail 7.x, django-allauth 65.x
+- **Frontend**: Django templates + HTMX + Alpine.js + Tailwind CSS v4. **No django-cotton.**
+- **Auth**: Google + Apple Sign-In (django-allauth), admin approval gate before members area access
+- **Infra**: Google App Engine Standard, Cloud SQL (PostgreSQL), GCS static/media
+- **Domain**: wsde.rcel.biz
+- **Dependency management**: uv (not pip)
+
+---
+
+## Architecture Conventions
+
+Source code lives under `src/`. Add `src/` to `PYTHONPATH` (already configured in `pyproject.toml`).
+
+### Settings hierarchy
+
+```
+core/settings/base.py       ← shared, imported by all others
+core/settings/dev.py        ← local development (default for manage.py)
+core/settings/production.py ← GAE / Cloud SQL (default for wsgi.py + asgi.py)
+core/settings/local.py      ← gitignored, extends dev, personal overrides
+```
+
+### Services Layer (MANDATORY for every app)
+
+Each app **must** have a `services/` directory:
+
+- **`services/data.py`** — Data-access layer. The public API for reading/writing the app's models. Other apps import this, **never models directly**. Large apps may split into a `services/data/` package with focused submodules; `data/__init__.py` re-exports via `__all__`.
+- **`services/logic.py`** — Business-logic layer. Views delegate here. Logic calls `data.py` for persistence.
+
+**Critical mutation rule:**
+
+- Views **may** call `data.py` for **reads**.
+- Views **must never** call `data.py` for **mutations**. All mutations go through `logic.py`.
+- This ensures business rules (approval gate, payment tracking, workflow transitions) are always enforced.
+
+### Models
+
+Minimise logic. Fields, `Meta`, `__str__`, simple computed properties only. No business logic.
+
+### Views
+
+HTTP concerns only: request parsing, auth checks, call services layer, return response. No business logic.
+
+---
+
+## Testing (MANDATORY red/green TDD)
+
+1. **RED** — Write failing test first. Run tests, confirm failure.
+2. **GREEN** — Write minimal code to pass. Run tests, confirm green.
+3. **REFACTOR** — Clean up. Re-run tests.
+
+Rules:
+
+- Never write production code without a failing test.
+- Run tests after every RED and GREEN step.
+- After all tests pass, run `make check` and `make fix`.
+- Never leave failing tests.
+
+### Unit tests
+
+- Every function in `services/data.py` and `services/logic.py` must have tests.
+- Test happy paths and edge cases.
+- Use factory-boy factories (each app's `factories.py`).
+- Use `pytest.mark.django_db` for database tests.
+- Test files: `tests/test_data.py`, `tests/test_logic.py`, `tests/test_views.py`.
+- Shared per-app fixtures in `tests/conftest.py`. Cross-app fixtures in `src/conftest.py`.
+
+### E2E tests (Playwright)
+
+- Every significant front-end feature must have Playwright e2e tests in `e2e/`.
+- Use `make e2e` (headless).
+- All navigation helpers live in `e2e/helpers.py` — never write local `go_to_*` helpers in test files.
+
+#### `e2e/helpers.py` canonical helpers
+
+```python
+go(page, base_url, path)           # replaces page.goto + wait_for_load_state
+settle(page)                       # wait for networkidle after click/submit
+wait_for_htmx(page)                # signals HTMX was the trigger, waits for networkidle
+wait_for_htmx_target(page, sel)    # wait for HTMX to inject content into specific element
+wait_for_alpine(page, ms=300)      # short wait for Alpine reactive DOM updates
+wait_for_animation(page, ms=200)   # wait for CSS transitions to complete
+require_or_skip(value, reason)     # replaces `if not x: return`, reports as skipped
+pk_from_href(href)                 # extract integer PK from a URL path string
+```
+
+Canonical test pattern:
+
+```python
+from helpers import go, require_or_skip
+
+class TestMyFeature:
+    def test_something(self, authenticated_page: Page, base_url: str) -> None:
+        go(authenticated_page, base_url, '/members/')
+        require_or_skip(authenticated_page.locator('.member-card').count(), 'no members')
+        # ... interact and assert
+```
+
+Never use `page.goto(f'{base_url}/path/')` — always `go(page, base_url, '/path/')`.  
+Never use `if not x: return` — always `require_or_skip(x, 'reason')`.
+
+#### E2E gotchas (Alpine.js + Playwright)
+
+- **CDN scripts won't work in headless e2e** — serve Alpine.js and HTMX from local static files (`make js-vendor`), never CDN URLs.
+- **`x-show` not `x-if`** — `x-if` removes elements from DOM; Playwright cannot find them before Alpine initialises. `x-show` keeps elements in DOM (hidden via `display:none`). Pair with `x-cloak` to prevent flash.
+- **Wait for Alpine to render** — after a click that triggers Alpine state change, add `expect(element).to_be_visible()` before pressing keys.
+- **`this` in event handlers vs `init()`** — inside `@keydown` on an input, `this` is the input, not the component root. Store `this._root = this` in `init()` and use `_root` for DOM traversal.
+- **Blur races with keyboard/cancel** — `x-show` triggers blur (element stays in DOM). Enter/Escape + `@blur='save()'` causes double-fire. Use a `_skipBlur` flag in keyboard handlers. For cancel buttons use `@mousedown.prevent` instead of `@click`.
+- **Locator specificity with `x-show`** — both display and edit elements are always in DOM. Scope locators to visible elements.
+
+---
+
+## Feature Completeness Checklist
+
+Every new model or feature must include:
+
+- Django admin with full `ModelAdmin` configuration
+- Complete services layer (CRUD in `data.py`, logic in `logic.py`)
+- Comprehensive tests via red/green TDD
+- E2E tests for user-facing features
+- factory-boy factory with sensible defaults
+- Sample data wired into `data_sample` management command
+
+---
+
+## Frontend Conventions
+
+Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No django-cotton.**
+
+- Templates live inside each app at `<app>/templates/`. Base template in `core/templates/`.
+- URL patterns in `core/urls.py` — include new app URL confs from there.
+- Tailwind version pinned in `Makefile` (`TW_VERSION`). Binary gitignored, auto-downloaded via `make tw-install`.
+- Alpine.js and HTMX pinned in `Makefile` (`ALPINE_VERSION`, `HTMX_VERSION`). Downloaded to `src/static/js/` via `make js-vendor`.
+- `BigAutoField` for all primary keys (set in `base.py`).
+- Use `uv` for dependencies (not pip).
+
+---
+
+## Key Make Targets
+
+| Target | Purpose |
+|---|---|
+| `make setup` | Full local setup (one-time) |
+| `make runserver` | Start Django dev server |
+| `make migrate` / `makemigrations` | Database migrations |
+| `make check` | ruff + ty quality gates |
+| `make fix` | Auto-fix and format |
+| `make test` / `test-one t="…"` | pytest |
+| `make install-hooks` | Wire `.githooks/` pre-commit hook |
+| `make js-vendor` | Download pinned Alpine.js + HTMX |
+| `make tw-install` / `tw-build` / `tw-watch` | Tailwind CSS v4 standalone CLI |

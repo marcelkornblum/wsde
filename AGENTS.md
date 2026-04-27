@@ -16,13 +16,13 @@ bd dolt push          # Push beads data to remote
 
 **Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
 
-Use the make targets — they encode the exact steps:
+Use the `just` recipes — they encode the exact steps:
 
 ```bash
-make git-start b="<branch-name>"   # checkout main + pull + create branch
+just work-start <branch-name>       # checkout main + pull + create branch
 # ... changes ...
-make git-done m="<commit message>"  # stage + commit + push
-make git-pr t="<PR title>"          # open PR via gh CLI
+just work-done "<commit message>"   # stage + commit + push
+just work-pr "<PR title>"           # open PR via gh CLI
 ```
 
 **Rules:**
@@ -91,25 +91,25 @@ bd close <id>         # Complete work
 ### Full lifecycle for non-trivial requests
 
 ```bash
-# 1. Before starting — create an issue if one doesn't exist, then claim it
-bd q "Short title of work"          # quick-create; prints the new ID (e.g. bd-a1b2)
-bd update bd-a1b2 --claim           # sets status=in_progress, assignee=you
-# — or use the make shortcut —
-make bd-new t="Short title of work" # create + claim in one step
+# 1. Before starting — create an issue and branch in one step
+just work-start my-branch "" "Short title of work"  # creates issue, claims it, makes branch
+# — or claim an existing issue —
+just work-start my-branch bd-a1b2                   # branch + claim existing issue
+# — or create the issue first, then branch —
+just work-new "Short title of work"                 # create + claim → prints id
+just work-start my-branch bd-a1b2                   # branch + claim
 
-# 2. Start the branch, optionally linking it to the issue
-make git-start b="my-branch" i=bd-a1b2   # creates branch AND claims the issue
+# 2. Do the work...
 
-# 3. Do the work...
+# 3. Commit, close the issue, push
+just work-done "feat: my change" bd-a1b2  # closes issue + commits + pushes
 
-# 4. Commit, close the issue, push
-make git-done m="feat: my change" i=bd-a1b2   # closes issue + commits + pushes
-
-# 5. Open the PR
-make git-pr t="PR title"
+# 4. Open the PR
+just work-pr "PR title"
 ```
 
 **Rules:**
+
 - Any request that takes more than a single file edit gets a `bd` issue.
 - Claim the issue before doing any work (`--claim` is idempotent if already claimed by you).
 - Close the issue when the PR is open, not when it's merged.
@@ -127,8 +127,9 @@ make git-pr t="PR title"
    ```bash
    git pull --rebase origin main   # ensure branch is from latest main
    bd dolt push
-   git push -u origin <branch>
-   # Then open a PR on GitHub — never push directly to main
+   just work-done "<commit msg>" [bd-id]  # closes issue + commits + pushes
+   just work-pr "<PR title>"
+   # or manually: git push -u origin <branch>
    git status  # MUST show "up to date with origin"
    ```
 5. **Clean up** - Clear stashes, prune remote branches
@@ -206,7 +207,7 @@ Rules:
 
 - Never write production code without a failing test.
 - Run tests after every RED and GREEN step.
-- After all tests pass, run `make check` and `make fix`.
+- After all tests pass, run `just check` and `just fix`.
 - Never leave failing tests.
 
 ### Unit tests
@@ -221,7 +222,7 @@ Rules:
 ### E2E tests (Playwright)
 
 - Every significant front-end feature must have Playwright e2e tests in `e2e/`.
-- Use `make e2e` (headless).
+- Use `just e2e` (headless).
 - All navigation helpers live in `e2e/helpers.py` — never write local `go_to_*` helpers in test files.
 
 #### `e2e/helpers.py` canonical helpers
@@ -254,7 +255,7 @@ Never use `if not x: return` — always `require_or_skip(x, 'reason')`.
 
 #### E2E gotchas (Alpine.js + Playwright)
 
-- **CDN scripts won't work in headless e2e** — serve Alpine.js and HTMX from local static files (`make js-vendor`), never CDN URLs.
+- **CDN scripts won't work in headless e2e** — serve Alpine.js and HTMX from local static files (`just js-vendor`), never CDN URLs.
 - **`x-show` not `x-if`** — `x-if` removes elements from DOM; Playwright cannot find them before Alpine initialises. `x-show` keeps elements in DOM (hidden via `display:none`). Pair with `x-cloak` to prevent flash.
 - **Wait for Alpine to render** — after a click that triggers Alpine state change, add `expect(element).to_be_visible()` before pressing keys.
 - **`this` in event handlers vs `init()`** — inside `@keydown` on an input, `this` is the input, not the component root. Store `this._root = this` in `init()` and use `_root` for DOM traversal.
@@ -282,23 +283,28 @@ Stack: Django/Wagtail templates + HTMX + Alpine.js + Tailwind CSS v4. **No djang
 
 - Templates live inside each app at `<app>/templates/`. Base template in `core/templates/`.
 - URL patterns in `core/urls.py` — include new app URL confs from there.
-- Tailwind version pinned in `Makefile` (`TW_VERSION`). Binary gitignored, auto-downloaded via `make tw-install`.
-- Alpine.js and HTMX pinned in `Makefile` (`ALPINE_VERSION`, `HTMX_VERSION`). Downloaded to `src/static/js/` via `make js-vendor`.
+- Tailwind version pinned in `justfile` (`TW_VERSION`). Binary gitignored, auto-downloaded via `just tw-install`.
+- Alpine.js and HTMX pinned in `justfile` (`ALPINE_VERSION`, `HTMX_VERSION`). Downloaded to `src/static/js/` via `just js-vendor`.
 - `BigAutoField` for all primary keys (set in `base.py`).
 - Use `uv` for dependencies (not pip).
 
 ---
 
-## Key Make Targets
+## Key `just` Recipes
 
-| Target                                      | Purpose                           |
-| ------------------------------------------- | --------------------------------- |
-| `make setup`                                | Full local setup (one-time)       |
-| `make runserver`                            | Start Django dev server           |
-| `make migrate` / `makemigrations`           | Database migrations               |
-| `make check`                                | ruff + ty quality gates           |
-| `make fix`                                  | Auto-fix and format               |
-| `make test` / `test-one t="…"`              | pytest                            |
-| `make install-hooks`                        | Wire `.githooks/` pre-commit hook |
-| `make js-vendor`                            | Download pinned Alpine.js + HTMX  |
-| `make tw-install` / `tw-build` / `tw-watch` | Tailwind CSS v4 standalone CLI    |
+| Recipe                                           | Purpose                                                          |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| `just setup`                                     | Full local setup (one-time)                                      |
+| `just runserver`                                 | Start Django dev server                                          |
+| `just migrate` / `makemigrations`                | Database migrations                                              |
+| `just check`                                     | ruff + ty quality gates                                          |
+| `just fix`                                       | Auto-fix and format                                              |
+| `just test` / `test-one "…"`                     | pytest                                                           |
+| `just install-hooks`                             | Wire `.githooks/` pre-commit hook                                |
+| `just js-vendor`                                 | Download pinned Alpine.js + HTMX                                 |
+| `just tw-install` / `tw-build` / `tw-watch`      | Tailwind CSS v4 standalone CLI                                   |
+| `just work-start <branch> [issue] ["title"]`     | Start work: checkout main + pull + branch (+ create/claim issue) |
+| `just work-done "msg" [issue]`                   | Finish work: close issue + commit + push                         |
+| `just work-pr "title"`                           | Open PR via gh CLI                                               |
+| `just work-new "title"`                          | Create and claim a new bd issue                                  |
+| `just bd-close <issue>`                          | Close a bd issue standalone                                      |

@@ -6,13 +6,13 @@
 
 **Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
 
-Use the make targets — they encode the exact steps:
+Use the `just` recipes — they encode the exact steps:
 
 ```bash
-make git-start b="<branch-name>"   # checkout main + pull + create branch
+just work-start <branch-name>       # checkout main + pull + create branch
 # ... changes ...
-make git-done m="<commit message>"  # stage + commit + push
-make git-pr t="<PR title>"          # open PR via gh CLI
+just work-done "<commit message>"   # stage + commit + push
+just work-pr "<PR title>"           # open PR via gh CLI
 ```
 
 ## Interaction Preferences (MANDATORY)
@@ -32,15 +32,17 @@ Full lifecycle for any non-trivial request:
 
 ```bash
 # Create + claim
-make bd-new t="Short title"          # quick-create and claim
-# or link to existing issue at branch creation:
-make git-start b="branch" i=bd-a1b2  # creates branch AND claims issue
+just work-new "Short title"                           # quick-create and claim
+# or create issue + branch in one step:
+just work-start my-branch "" "New issue title"        # creates issue, claims, branches
+# or link to existing issue:
+just work-start my-branch bd-a1b2                     # branch AND claims issue
 
 # Close issue + commit + push
-make git-done m="commit msg" i=bd-a1b2
+just work-done "commit msg" bd-a1b2
 
 # Open PR
-make git-pr t="PR title"
+just work-pr "PR title"
 ```
 
 Close the issue when the PR is open (not when merged). Any request beyond a single file edit gets an issue.
@@ -57,21 +59,21 @@ Django 6.x + Wagtail 7.x on Python 3.13, managed with uv. PostgreSQL via Cloud S
 
 ## Key Make Targets
 
-| Target                            | Purpose                                       |
-| --------------------------------- | --------------------------------------------- |
-| `make setup`                      | Full local setup (one-time)                   |
-| `make runserver`                  | Start dev server                              |
-| `make migrate` / `makemigrations` | Database migrations                           |
-| `make check`                      | ruff + ty                                     |
-| `make fix`                        | Auto-fix + format                             |
-| `make test` / `test-one t="…"`    | pytest                                        |
-| `make tw-build`                   | Build Tailwind CSS                            |
-| `make js-vendor`                  | Download Alpine.js + HTMX                     |
-| `make git-start b="…" [i="…"]`   | Start work: checkout main + pull + new branch (+ claim bd issue) |
-| `make git-done m="…" [i="…"]`    | Finish work: stage + commit + push (+ close bd issue)            |
-| `make git-pr t="…"`               | Open PR via gh CLI                                                |
-| `make bd-new t="…"`               | Create and claim a new bd issue                                   |
-| `make bd-close i="…"`             | Close a bd issue                                                  |
+| Target                            | Purpose                                                          |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `just setup`                                           | Full local setup (one-time)                                      |
+| `just runserver`                                       | Start dev server                                                 |
+| `just migrate` / `makemigrations`                      | Database migrations                                              |
+| `just check`                                           | ruff + ty                                                        |
+| `just fix`                                             | Auto-fix + format                                                |
+| `just test` / `test-one "…"`                           | pytest                                                           |
+| `just tw-build`                                        | Build Tailwind CSS                                               |
+| `just js-vendor`                                       | Download Alpine.js + HTMX                                        |
+| `just work-start <branch> [issue] ["title"]`           | Start work: checkout main + pull + branch (+ create/claim issue) |
+| `just work-done "msg" [issue]`                         | Finish work: close issue + commit + push                         |
+| `just work-pr "title"`                                 | Open PR via gh CLI                                               |
+| `just work-new "title"`                                | Create and claim a new bd issue                                  |
+| `just bd-close <issue>`                                | Close a bd issue standalone                                      |
 
 ## Services Layer (MANDATORY)
 
@@ -127,6 +129,6 @@ Every new model/feature must include:
 ## Frontend
 
 - Templates in `<app>/templates/`. Base template in `core/templates/`.
-- Tailwind binary gitignored; auto-downloaded via `make tw-install` (version pinned in Makefile).
-- Alpine.js + HTMX downloaded to `src/static/js/` via `make js-vendor` (never CDN in production).
+- Tailwind binary gitignored; auto-downloaded via `just tw-install` (version pinned in justfile).
+- Alpine.js + HTMX downloaded to `src/static/js/` via `just js-vendor` (never CDN in production).
 - `BigAutoField` for all PKs.

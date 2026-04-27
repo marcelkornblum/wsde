@@ -12,9 +12,33 @@ bd close <id>         # Complete work
 bd dolt push          # Push beads data to remote
 ```
 
-## Non-Interactive Shell Commands
+## Git Workflow (MANDATORY)
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+**Every piece of work must go through a feature branch + PR. Never push directly to `main`.**
+
+```bash
+# Start work
+git checkout main
+git pull --ff-only origin main        # always start from latest main
+git checkout -b <descriptive-branch>  # create feature branch
+
+# ... make changes, commit ...
+
+# Finish work
+bd dolt push
+git push -u origin <descriptive-branch>
+# Open a PR on GitHub
+```
+
+**Rules:**
+- Always `git pull --ff-only origin main` before creating a branch
+- Branch names should be descriptive (e.g. `wsde-3ln.5-hooks`, `fix-cd-proxy-socket`)
+- Open a PR after pushing — work is not complete until a PR exists
+- Never amend or force-push to branches that already have a PR open
+
+---
+
+## Non-Interactive Shell Commands
 
 Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
 
@@ -65,21 +89,24 @@ bd close <id>         # Complete work
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+4. **PUSH TO REMOTE via PR** - This is MANDATORY:
    ```bash
-   git pull --rebase
+   git pull --rebase origin main   # ensure branch is from latest main
    bd dolt push
-   git push
+   git push -u origin <branch>
+   # Then open a PR on GitHub — never push directly to main
    git status  # MUST show "up to date with origin"
    ```
 5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
+6. **Verify** - All changes committed AND pushed (PR open)
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
+- Work is NOT complete until `git push` succeeds and a PR is open
+- NEVER push directly to `main` — always use a feature branch + PR
+- Always `git pull --ff-only` (or `--rebase`) from main before creating a branch
 - NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
+- NEVER say "ready to push when you are" - YOU must push and open the PR
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
 

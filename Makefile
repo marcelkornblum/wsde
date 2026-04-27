@@ -117,6 +117,12 @@ install-hooks: ## Install git hooks from .githooks/
 	git config core.hooksPath .githooks
 	@echo "✅  Git hooks installed (using .githooks/ directory)."
 
+.PHONY: app-yaml
+app-yaml: ## Show the committed app.yaml location (it's already in the repo)
+	@echo "app.yaml is committed at the repo root — edit it directly."
+	@echo "Current contents:"
+	@cat app.yaml
+
 # ---------------------------------------------------------------------------
 # Frontend – vendor JS (Alpine.js + HTMX, downloaded to src/static/js/)
 # ---------------------------------------------------------------------------

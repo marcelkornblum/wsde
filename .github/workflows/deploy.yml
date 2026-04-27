@@ -133,11 +133,13 @@ jobs:
           ./cloud-sql-proxy \
             --unix-socket /tmp/cloudsql \
             "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" &
-          # Wait for the socket to appear (max 15s)
-          for i in $(seq 1 15); do
-            [ -S "/tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" ] && break
+          # Wait for the actual socket file to appear (max 30s)
+          SOCKET="/tmp/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }}/.s.PGSQL.5432"
+          for i in $(seq 1 30); do
+            [ -S "$SOCKET" ] && echo "Proxy ready after ${i}s" && break
             sleep 1
           done
+          [ -S "$SOCKET" ] || { echo "ERROR: proxy socket never appeared"; exit 1; }
 
       - name: Run database migrations
         run: uv run python manage.py migrate --noinput

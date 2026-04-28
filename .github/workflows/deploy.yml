@@ -176,6 +176,9 @@ jobs:
         if: always()
         run: pkill -f cloud-sql-proxy || true
 
+      - name: Generate requirements.txt for GAE
+        run: uv export --no-dev --no-hashes -o requirements.txt
+
       - name: Deploy to App Engine
         run: gcloud app deploy "${{ steps.config.outputs.app_yaml }}" --quiet --project="${{ secrets.GCP_PROJECT_ID }}"
 

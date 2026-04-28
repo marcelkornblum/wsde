@@ -1,4 +1,5 @@
 """Tests for core.secrets — GCP Secret Manager loader."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest

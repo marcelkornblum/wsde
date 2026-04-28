@@ -4,6 +4,7 @@ GCP Secret Manager loader for production settings.
 On GAE, GOOGLE_CLOUD_PROJECT is set automatically by the runtime.
 On local dev, production.py (the only importer) is never loaded.
 """
+
 import os
 from functools import cache
 

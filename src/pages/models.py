@@ -1,10 +1,28 @@
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from wagtail.admin.panels import FieldPanel
-from wagtail.blocks import CharBlock, RichTextBlock, StreamBlock, StructBlock
+from wagtail.blocks import (
+    BooleanBlock,
+    CharBlock,
+    RichTextBlock,
+    StreamBlock,
+    StructBlock,
+)
 from wagtail.fields import StreamField
 from wagtail.images.blocks import ImageChooserBlock
 from wagtail.models import Page
+
+
+class HeroBlock(StructBlock):
+    background_image = ImageChooserBlock()
+    event_name = CharBlock(help_text="Large headline displayed over the hero")
+    cta_label = CharBlock(default="Request access")
+    show_cta = BooleanBlock(default=True, required=False)
+
+    class Meta:
+        icon = "pick"
+        label = "Hero"
+        template = "pages/blocks/hero.html"
 
 
 class FullBleedImageBlock(StructBlock):
@@ -44,8 +62,16 @@ class RichContentStreamBlock(StreamBlock):
     two_column = TwoColumnBlock()
 
 
+class HomePageStreamBlock(StreamBlock):
+    hero = HeroBlock()
+    rich_text = RichTextBlock(icon="pilcrow")
+    full_bleed_image = FullBleedImageBlock()
+    pull_quote = PullQuoteBlock()
+    two_column = TwoColumnBlock()
+
+
 class HomePage(Page):
-    body = StreamField(RichContentStreamBlock(), blank=True, use_json_field=True)
+    body = StreamField(HomePageStreamBlock(), blank=True, use_json_field=True)
 
     content_panels = Page.content_panels + [
         FieldPanel("body"),

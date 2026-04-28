@@ -1,0 +1,12 @@
+<blockquote class="my-10 sm:my-14 md:my-20 px-5 sm:px-8 md:px-12 lg:px-20">
+  <div class="border-l-4 border-accent-500 pl-6 sm:pl-8 md:pl-10">
+    <p class="font-display text-2xl sm:text-3xl md:text-4xl text-stone-100 leading-snug italic">
+      &ldquo;{{ value.quote }}&rdquo;
+    </p>
+    {% if value.attribution %}
+      <cite class="block mt-4 text-sm sm:text-base text-stone-400 not-italic">
+        — {{ value.attribution }}
+      </cite>
+    {% endif %}
+  </div>
+</blockquote>

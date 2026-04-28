@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Worst Stag Do Ever{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
+  <style>[x-cloak]{display:none!important}</style>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="min-h-full bg-brand-950 text-stone-100 font-sans flex flex-col">
 
-  <header class="bg-brand-900 border-b border-brand-800">
-    <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <a href="/" class="font-display text-xl font-bold text-stone-100 hover:text-accent-400 transition-colors">
+  <header class="{% block header_class %}bg-brand-900 border-b border-brand-800{% endblock %}">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+      <a href="/" class="font-display text-lg sm:text-xl font-bold text-stone-100 hover:text-accent-400 transition-colors">
         Worst Stag Do Ever
       </a>
 
@@ -55,8 +56,8 @@
     </div>
   </footer>
 
-  <script src="{% static 'js/htmx.js' %}" defer></script>
-  <script src="{% static 'js/alpine.js' %}" defer></script>
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/alpine.min.js' %}" defer></script>
   {% block extra_js %}{% endblock %}
 
 </body>

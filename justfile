@@ -1,6 +1,12 @@
 # justfile — wsde task runner
 # Install: curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
 # Usage: just <recipe>  (just --list to see all)
+#
+# Prerequisites (install before running `just setup`):
+#   - just        https://just.systems
+#   - uv          https://docs.astral.sh/uv/getting-started/installation/
+#   - gh CLI      https://cli.github.com  (needed for work-pr and PR workflows)
+#   - PostgreSQL  running locally on port 5432 (brew install postgresql@16 / apt install postgresql)
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
@@ -19,7 +25,8 @@ default:
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 
-# Full local setup: venv, hooks, vendor JS, Tailwind
+# Full local setup: venv, hooks, vendor JS, Tailwind, DB, migrations
+# Prerequisites: PostgreSQL running locally, gh CLI installed
 setup:
     @echo "── Installing Python dependencies ──"
     uv sync
@@ -39,7 +46,28 @@ setup:
     @echo "── Creating local.py settings override (if missing) ──"
     cp -n src/core/settings/local.py.tpl src/core/settings/local.py 2>/dev/null || true
     @echo ""
+    @echo "── Creating local database (if missing) ──"
+    just db-create || true
+    @echo ""
+    @echo "── Running migrations ──"
+    just migrate
+    @echo ""
     @echo "✅  Setup complete. Run 'just runserver' to start developing."
+
+# Create local Postgres user and database for development (idempotent)
+db-create:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DB_USER="${DB_USER:-wsde}"
+    DB_PASSWORD="${DB_PASSWORD:-wsde}"
+    DB_NAME="${DB_NAME:-wsde}"
+    psql postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" \
+        | grep -q 1 \
+        || psql postgres -c "CREATE ROLE ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';"
+    psql postgres -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" \
+        | grep -q 1 \
+        || psql postgres -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+    echo "✅  Database '${DB_NAME}' ready."
 
 # ── Development ───────────────────────────────────────────────────────────────
 

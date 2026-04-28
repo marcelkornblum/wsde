@@ -30,6 +30,11 @@ src/core/settings/local.py
 # Tailwind binary (auto-downloaded by make)
 bin/tailwindcss
 
+# Generated static assets (built by just tw-build / just js-vendor)
+src/static/css/output.css
+src/static/js/alpine*.js
+src/static/js/htmx*.js
+
 # Environment files
 .env
 .env.*

@@ -1,0 +1,15 @@
+{% load wagtailimages_tags %}
+<figure class="my-8 sm:my-12 md:my-16 -mx-5 sm:-mx-8 md:-mx-12 lg:-mx-20">
+  {% image value.image original as img %}
+  <img
+    src="{{ img.url }}"
+    alt="{{ img.alt }}"
+    class="w-full object-cover max-h-[60vh] sm:max-h-[70vh]"
+    loading="lazy"
+  >
+  {% if value.caption %}
+    <figcaption class="px-5 sm:px-8 md:px-12 lg:px-20 mt-3 text-sm text-stone-500 italic">
+      {{ value.caption }}
+    </figcaption>
+  {% endif %}
+</figure>

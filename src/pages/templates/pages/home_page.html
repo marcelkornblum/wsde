@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block title %}{{ page.title }} — Worst Stag Do Ever{% endblock %}
+
+{% block header_class %}absolute top-0 left-0 right-0 z-20 bg-transparent border-b border-white/10{% endblock %}
+
+{% block content %}
+  {% for block in page.body %}
+    {% include_block block %}
+  {% endfor %}
+{% endblock %}

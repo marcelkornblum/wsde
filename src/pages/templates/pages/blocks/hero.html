@@ -1,0 +1,111 @@
+{% load wagtailimages_tags %}
+{% image value.background_image original as bg %}
+
+<section
+  class="relative flex items-end overflow-hidden"
+  style="min-height: min(100svh, 900px);"
+  x-data="{ open: false }"
+>
+  {# Full-bleed background #}
+  <div
+    class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+    style="background-image: url('{{ bg.url }}');"
+    role="img"
+    aria-label="{{ value.event_name }}"
+  ></div>
+
+  {# Gradient: light top → solid bottom #}
+  <div class="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/50 to-brand-950/10" aria-hidden="true"></div>
+
+  {# Text — anchored to bottom-left #}
+  <div class="relative z-10 w-full px-5 sm:px-8 md:px-12 lg:px-20 pb-12 sm:pb-16 md:pb-24">
+    <h1 class="font-display font-bold text-stone-100 leading-none tracking-tight
+                text-4xl sm:text-6xl md:text-7xl lg:text-8xl
+                max-w-xs sm:max-w-lg md:max-w-2xl lg:max-w-4xl
+                mb-6 sm:mb-8">
+      {{ value.event_name }}
+    </h1>
+
+    {% if value.show_cta %}
+      <button
+        @click="open = true"
+        class="inline-flex items-center gap-2
+               bg-accent-500 hover:bg-accent-400 active:bg-accent-600
+               text-white font-semibold
+               px-6 py-3 sm:px-8 sm:py-4
+               text-base sm:text-lg
+               rounded-md transition-colors shadow-lg"
+      >
+        {{ value.cta_label }}
+      </button>
+    {% endif %}
+  </div>
+
+  {# CTA modal #}
+  {% if value.show_cta %}
+    <div
+      x-show="open"
+      x-cloak
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      @keydown.escape.window="open = false"
+    >
+      {# Backdrop #}
+      <div
+        class="absolute inset-0 bg-brand-950/80 backdrop-blur-sm"
+        @click="open = false"
+        aria-hidden="true"
+      ></div>
+
+      {# Modal panel #}
+      <div
+        class="relative w-full max-w-sm sm:max-w-md
+               bg-brand-900 border border-brand-700
+               rounded-xl shadow-2xl
+               p-6 sm:p-8"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cta-modal-title"
+      >
+        <button
+          @click="open = false"
+          class="absolute top-3 right-3 sm:top-4 sm:right-4
+                 p-1 text-stone-500 hover:text-stone-300 transition-colors"
+          aria-label="Close"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <h2 id="cta-modal-title" class="font-display text-xl sm:text-2xl text-stone-100 mb-2">
+          Join us
+        </h2>
+        <p class="text-sm sm:text-base text-stone-400 mb-6">
+          Already have an account? Sign in below. Otherwise, request access and we'll be in touch.
+        </p>
+
+        <div class="flex flex-col gap-3">
+          <a
+            href="/accounts/signup/"
+            class="w-full text-center
+                   bg-accent-500 hover:bg-accent-400 active:bg-accent-600
+                   text-white font-semibold
+                   px-6 py-3 rounded-md transition-colors text-sm sm:text-base"
+          >
+            Request access
+          </a>
+          <a
+            href="/accounts/login/"
+            class="w-full text-center
+                   bg-brand-800 hover:bg-brand-700
+                   text-stone-300 hover:text-stone-100
+                   px-6 py-3 rounded-md transition-colors text-sm sm:text-base border border-brand-700"
+          >
+            Sign in
+          </a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</section>
+

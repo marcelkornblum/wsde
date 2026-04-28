@@ -33,6 +33,35 @@ class TestEnsureHomepageCommand:
         assert HomePage.objects.count() == 1
         assert HomePage.objects.first().pk == existing_pk
 
+    def test_creates_default_site_when_missing(self, root_page):
+        from django.core.management import call_command
+        from wagtail.models import Page, Site
+
+        from pages.models import HomePage
+
+        Page.objects.filter(depth=2).delete()
+        Site.objects.all().delete()
+        call_command("ensure_homepage", verbosity=0)
+        assert Site.objects.filter(is_default_site=True).exists()
+        site = Site.objects.get(is_default_site=True)
+        assert site.root_page_id == HomePage.objects.first().pk
+
+    def test_updates_site_root_when_pointing_elsewhere(self, home_page):
+        from django.core.management import call_command
+        from wagtail.models import Page, Site
+
+        site = Site.objects.filter(is_default_site=True).first()
+        if site is None:
+            Site.objects.create(
+                hostname="localhost",
+                port=80,
+                root_page=Page.objects.filter(depth=1).first(),
+                is_default_site=True,
+            )
+        call_command("ensure_homepage", verbosity=0)
+        site = Site.objects.get(is_default_site=True)
+        assert site.root_page_id == home_page.pk
+
 
 @pytest.mark.django_db
 class TestPageParentRules:

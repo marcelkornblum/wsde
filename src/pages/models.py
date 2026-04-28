@@ -53,6 +53,7 @@ class HomePage(Page):
 
     parent_page_types = ["wagtailcore.Page"]
     subpage_types = ["pages.BrochurePage", "pages.MembersIndexPage"]
+    max_count = 1
 
     class Meta:
         verbose_name = "Home page"

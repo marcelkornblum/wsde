@@ -2,6 +2,39 @@ import pytest
 
 
 @pytest.mark.django_db
+class TestHomePageConstraints:
+    def test_only_one_home_page_can_exist(self, home_page, root_page):
+        from pages.models import HomePage
+
+        assert HomePage.can_create_at(root_page) is False
+
+
+@pytest.mark.django_db
+class TestEnsureHomepageCommand:
+    def test_creates_home_page_when_none_exists(self, root_page):
+        from django.core.management import call_command
+        from wagtail.models import Page
+
+        from pages.models import HomePage
+
+        # Delete all depth-2 pages via treebeard-aware queryset
+        Page.objects.filter(depth=2).delete()
+        call_command("ensure_homepage", verbosity=0)
+        assert HomePage.objects.count() == 1
+        assert HomePage.objects.filter(slug="home").exists()
+
+    def test_does_not_replace_existing_home_page(self, home_page):
+        from django.core.management import call_command
+
+        from pages.models import HomePage
+
+        existing_pk = home_page.pk
+        call_command("ensure_homepage", verbosity=0)
+        assert HomePage.objects.count() == 1
+        assert HomePage.objects.first().pk == existing_pk
+
+
+@pytest.mark.django_db
 class TestPageParentRules:
     def test_home_page_allowed_under_root(self, root_page):
         from pages.models import HomePage

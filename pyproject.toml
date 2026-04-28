@@ -26,7 +26,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "core.settings.dev"
+DJANGO_SETTINGS_MODULE = "core.settings.local"
 python_files = ["tests.py", "test_*.py"]
 pythonpath = ["src"]
 testpaths = ["src"]

@@ -44,6 +44,7 @@ ALLAUTH_APPS = [
 
 LOCAL_APPS: list[str] = [
     "core",
+    "pages",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + WAGTAIL_APPS + ALLAUTH_APPS + LOCAL_APPS

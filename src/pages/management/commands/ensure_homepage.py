@@ -11,21 +11,22 @@ class Command(BaseCommand):
 
         root = Page.objects.filter(depth=1).first()
         if root is None:
-            self.stderr.write("❌  No root page found. Run migrations first.")
-            return
+            root = Page.add_root(title="Root", slug="root")
+            self.stdout.write("✅  Created Wagtail root page.")
 
         if HomePage.objects.exists():
             home = HomePage.objects.first()
             self.stdout.write("✅  HomePage already exists.")
         else:
-            # Wagtail's initial migration creates a plain Page with slug "home".
-            # Delete it so we can take its place cleanly.
-            default_page = Page.objects.filter(depth=2, slug="home").first()
-            if default_page is not None:
-                Site.objects.filter(root_page=default_page).update(root_page=root)
-                default_page.delete()
+            # Remove any default child pages Wagtail created (e.g. "Welcome to your new Wagtail site!")
+            # so the root's numchild count stays consistent with what treebeard expects.
+            default_pages = Page.objects.filter(depth=2)
+            for p in default_pages:
+                Site.objects.filter(root_page=p).update(root_page=root)
+                p.delete()
 
             home = HomePage(title="Home", slug="home", live=True)
+            root.refresh_from_db()
             root.add_child(instance=home)
             self.stdout.write(f"✅  Created HomePage (pk={home.pk}).")
 

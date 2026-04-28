@@ -57,7 +57,8 @@ setup:
     @echo "   Next steps:"
     @echo "   1. Run 'just dev-creds' to get your DB password and add it to src/core/settings/local.py"
     @echo "   2. Run 'just proxy' in a separate terminal (keep it running)"
-    @echo "   3. Run 'just migrate' then 'just runserver'"
+    @echo "   3. Run 'just db-reset' to initialise the database and create an admin user"
+    @echo "   4. Run 'just runserver'"
 
 # Download the Cloud SQL Auth Proxy binary for this platform
 proxy-install:
@@ -119,6 +120,17 @@ superuser:
 migrate:
     uv run python manage.py migrate
     uv run python manage.py ensure_homepage
+
+# Reset the local database: drop all tables, re-migrate from scratch, create admin superuser
+db-reset:
+    uv run python manage.py drop_all_tables
+    uv run python manage.py migrate
+    uv run python manage.py ensure_homepage
+    DJANGO_SUPERUSER_USERNAME=admin \
+    DJANGO_SUPERUSER_PASSWORD=admin \
+    DJANGO_SUPERUSER_EMAIL=admin@example.com \
+    uv run python manage.py createsuperuser --noinput
+    @echo "✅  DB reset complete. Superuser: admin / admin"
 
 # Create new Django migrations
 makemigrations:

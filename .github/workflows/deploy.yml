@@ -18,7 +18,7 @@ name: Deploy
 #   - GCS_BUCKET_NAME                 (e.g. wsde-static / wsde-static-staging)
 #
 # GCP resources needed:
-#   staging:    Cloud SQL instance wsde-db-staging, GCS bucket wsde-static-staging
+#   staging:    Cloud SQL instance wsde-db (wsde_staging DB), GCS bucket wsde-static-staging
 #   production: Cloud SQL instance wsde-db,         GCS bucket wsde-static
 #
 # Recommended: add a manual approval gate on the "production" environment in

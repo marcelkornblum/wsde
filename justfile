@@ -1,12 +1,22 @@
 # justfile — wsde task runner
 # Install: curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
 # Usage: just <recipe>  (just --list to see all)
+#
+# Prerequisites (install before running `just setup`):
+#   - just        https://just.systems
+#   - uv          https://docs.astral.sh/uv/getting-started/installation/
+#   - gh CLI      https://cli.github.com  (needed for work-pr and PR workflows)
+#   - gcloud CLI  https://cloud.google.com/sdk/docs/install (authenticated via 'gcloud auth application-default login')
+#   - gh CLI      https://cli.github.com  (needed for work-pr and PR workflows)
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 ALPINE_VERSION := "3.14.8"
 HTMX_VERSION   := "2.0.4"
 TW_VERSION     := "4.2.2"
+PROXY_VERSION  := "2.15.2"
+PROXY          := "./bin/cloud-sql-proxy"
+DEV_INSTANCE   := "wsde-marcelkornblum:europe-west2:wsde-db"
 JS_DIR         := "src/static/js"
 TAILWIND       := "./bin/tailwindcss"
 TW_INPUT       := "src/styles/input.css"
@@ -19,7 +29,8 @@ default:
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 
-# Full local setup: venv, hooks, vendor JS, Tailwind
+# Full local setup: venv, hooks, JS, Tailwind, proxy binary, local.py
+# After setup: run 'just proxy' in one terminal, then 'just migrate' and 'just runserver'
 setup:
     @echo "── Installing Python dependencies ──"
     uv sync
@@ -36,10 +47,59 @@ setup:
     @echo "── Building Tailwind CSS ──"
     just tw-build
     @echo ""
+    @echo "── Downloading Cloud SQL Auth Proxy ──"
+    just proxy-install
+    @echo ""
     @echo "── Creating local.py settings override (if missing) ──"
     cp -n src/core/settings/local.py.tpl src/core/settings/local.py 2>/dev/null || true
     @echo ""
-    @echo "✅  Setup complete. Run 'just runserver' to start developing."
+    @echo "✅  Setup complete."
+    @echo "   Next steps:"
+    @echo "   1. Run 'just dev-creds' to get your DB password and add it to src/core/settings/local.py"
+    @echo "   2. Run 'just proxy' in a separate terminal (keep it running)"
+    @echo "   3. Run 'just migrate' then 'just runserver'"
+
+# Download the Cloud SQL Auth Proxy binary for this platform
+proxy-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    ARCH=$(uname -m)
+    [[ "$ARCH" == "x86_64" ]] && ARCH="amd64"
+    [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]] && ARCH="arm64"
+    [[ "$OS" == "darwin" ]] && OS="darwin"
+    URL="https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v{{ PROXY_VERSION }}/cloud-sql-proxy.${OS}.${ARCH}"
+    if [[ -x "{{ PROXY }}" ]] && "{{ PROXY }}" --version 2>/dev/null | grep -q "{{ PROXY_VERSION }}"; then
+        echo "✅  Cloud SQL Auth Proxy v{{ PROXY_VERSION }} already installed."
+    else
+        echo "── Downloading Cloud SQL Auth Proxy v{{ PROXY_VERSION }} (${OS}-${ARCH}) ──"
+        mkdir -p bin
+        curl -fSL "$URL" -o "{{ PROXY }}"
+        chmod +x "{{ PROXY }}"
+        echo "✅  Cloud SQL Auth Proxy v{{ PROXY_VERSION }} installed to {{ PROXY }}"
+    fi
+
+# Start the Cloud SQL Auth Proxy (TCP mode, localhost:5432) — keep running in a separate terminal
+proxy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ -x "{{ PROXY }}" ]] || just proxy-install
+    echo "── Starting Cloud SQL Auth Proxy for {{ DEV_INSTANCE }} on localhost:5432 ──"
+    echo "   Keep this terminal open. Ctrl+C to stop."
+    "{{ PROXY }}" --port 5432 "{{ DEV_INSTANCE }}"
+
+# Print the dev DB password from Secret Manager (add to local.py)
+dev-creds:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PW=$(gcloud secrets versions access latest --secret=DB_PASSWORD_DEV --project=wsde-marcelkornblum)
+    echo ""
+    echo "Add these lines to src/core/settings/local.py:"
+    echo ""
+    echo '  DATABASES["default"]["NAME"] = "wsde_dev"'
+    echo '  DATABASES["default"]["USER"] = "wsde_dev"'
+    echo "  DATABASES[\"default\"][\"PASSWORD\"] = \"${PW}\""
+    echo ""
 
 # ── Development ───────────────────────────────────────────────────────────────
 

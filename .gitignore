@@ -29,6 +29,8 @@ src/core/settings/local.py
 
 # Tailwind binary (auto-downloaded by make)
 bin/tailwindcss
+# Cloud SQL Auth Proxy binary (auto-downloaded by just proxy-install)
+bin/cloud-sql-proxy
 
 # Generated static assets (built by just tw-build / just js-vendor)
 src/static/css/output.css

@@ -11,6 +11,9 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = True
 
+# Insecure key for local development only — never used in staging/production
+SECRET_KEY = "django-insecure-local-dev-only-do-not-use-in-production-wsde"  # noqa: S105
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 
 DATABASES = {

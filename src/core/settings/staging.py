@@ -1,13 +1,14 @@
 """
 Staging settings for Google App Engine. Extends production.
 
-Targets the staging GAE service and staging Cloud SQL instance.
-Secrets are loaded from Secret Manager using _STAGING-suffixed names,
-keeping staging credentials fully separate from production.
+Targets the staging GAE service on the shared Cloud SQL instance (wsde-db).
+Uses the wsde_staging database. Secrets are loaded from Secret Manager using
+_STAGING-suffixed names, keeping staging credentials separate from production.
 
 Required Secret Manager secrets (same project, different names):
   SECRET_KEY_STAGING, DB_NAME_STAGING, DB_USER_STAGING, DB_PASSWORD_STAGING
 """
+
 import os
 
 from core.secrets import get_secret
@@ -26,7 +27,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Override production secrets with staging-specific ones
 SECRET_KEY = get_secret("SECRET_KEY_STAGING")
 
-_conn_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME", "wsde-marcelkornblum:europe-west2:wsde-db-staging")
+_conn_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME", "wsde-marcelkornblum:europe-west2:wsde-db")
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

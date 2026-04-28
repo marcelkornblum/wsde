@@ -115,9 +115,10 @@ shell:
 superuser:
     uv run python manage.py createsuperuser
 
-# Run Django migrations
+# Run Django migrations and ensure the site HomePage exists
 migrate:
     uv run python manage.py migrate
+    uv run python manage.py ensure_homepage
 
 # Create new Django migrations
 makemigrations:

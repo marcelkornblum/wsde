@@ -5,6 +5,7 @@ Sensitive credentials are loaded from GCP Secret Manager via core.secrets.
 Non-sensitive config (DB host, bucket name) is read from environment variables
 set in app.yaml — safe to commit, not secret.
 """
+
 import os
 
 from core.secrets import get_secret

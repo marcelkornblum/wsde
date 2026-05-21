@@ -20,9 +20,9 @@ dev = [
     "factory-boy>=3.3.3",
     "pytest>=9.0.3",
     "pytest-django>=4.12.0",
-    "pytest-playwright>=0.7.2",
+    "pytest-playwright>=0.8.0",
     "ruff>=0.15.13",
-    "ty>=0.0.35",
+    "ty>=0.0.37",
 ]
 
 [tool.pytest.ini_options]

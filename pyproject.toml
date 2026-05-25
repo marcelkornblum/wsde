@@ -11,7 +11,7 @@ dependencies = [
     "gunicorn>=26.0.0",
     "psycopg2-binary>=2.9.12",
     "pyjwt>=2.13.0",
-    "wagtail>=7.4",
+    "wagtail>=7.4.1",
 ]
 
 [dependency-groups]

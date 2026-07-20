@@ -16,7 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "coverage>=7.15.1",
+    "coverage>=7.15.2",
     "factory-boy>=3.3.3",
     "pytest>=9.1.1",
     "pytest-django>=4.12.0",
